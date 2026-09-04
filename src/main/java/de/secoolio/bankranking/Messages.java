@@ -13,17 +13,34 @@ public final class Messages {
     public static final String NUR_SPIELER = "<red>Diesen Befehl kann nur ein Spieler ausführen.";
     public static final String KEINE_RECHTE = "<red>Du darfst die Bank nicht benutzen.";
 
-    public static final String GUI_TITEL = "<dark_green>Bank</dark_green> <dark_gray>-</dark_gray> Items abgeben";
-    public static final String BUTTON_NAME = "<green><bold>Abgeben & Punkte erhalten</bold></green>";
+    public static final String GUI_TITEL =
+            "<dark_green>\u2726</dark_green> <bold>Bank</bold> <dark_gray>|</dark_gray> <gray>Items abgeben";
+    public static final String BUTTON_NAME = "<green><bold>\u2714 Abgeben</bold></green>";
     public static final String[] BUTTON_LORE = {
-            "<gray>Klicke hier, um alle Items in der Bank",
-            "<gray>in Punkte umzuwandeln.",
+            "<gray>Wandelt alle Items im Fenster",
+            "<gray>in Punkte um.",
             "",
-            "<red>Die Items sind danach weg!",
-            "<gray>Fenster schließen = Items zurück.",
-            "<gray>Gefüllte Shulker-Boxen werden geleert,",
-            "<gray>die leere Box bekommst du zurück."
+            "<red>\u26a0 Die Items sind danach weg.",
+            "<dark_gray>Fenster schließen = alles zurück"
     };
+    /** <punkte> = aktueller Wert der eingelegten Items, <anzahl> = Anzahl der Items. */
+    public static final String WERT_ANZEIGE_NAME = "<gold><bold>Aktueller Wert</bold></gold>";
+    public static final String[] WERT_ANZEIGE_LORE = {
+            "<gray>Eingelegt: <white><anzahl></white> Items",
+            "<gray>Wert: <gold><punkte></gold> Punkte"
+    };
+    public static final String WERT_ANZEIGE_LEER_NAME = "<gray><bold>Noch nichts eingelegt</bold></gray>";
+    public static final String[] WERT_ANZEIGE_LEER_LORE = {
+            "<gray>Lege Items in die freien Plätze.",
+            "<gray>Hier siehst du dann ihren Wert."
+    };
+    /** <punkte> = Kontostand, <platz> = Platz in der Rangliste. */
+    public static final String KONTO_ANZEIGE_NAME = "<aqua><bold>Dein Konto</bold></aqua>";
+    public static final String[] KONTO_ANZEIGE_LORE = {
+            "<gray>Punkte: <gold><punkte></gold>",
+            "<gray>Platz: <white><platz></white>"
+    };
+    public static final String KONTO_ANZEIGE_OHNE_PLATZ = "<gray>noch keiner</gray>";
 
     public static final String BANK_LEER = "<yellow>Die Bank ist leer - lege zuerst Items hinein.";
     public static final String BANK_WERTLOS = "<yellow>Diese Items sind 0 Punkte wert - nimm sie wieder heraus.";
@@ -94,8 +111,9 @@ public final class Messages {
 
     public static final String WERT_LEER = "<yellow>Nimm ein Item in die Haupthand.";
     public static final String WERT_KOPF = "<gold>Wert von <white><material></white> <gray>x<anzahl></gray>:";
+    public static final String WERT_GRUNDWERT = "<gray>Grundwert: <white><basis></white> je Stück";
     public static final String WERT_SELTENHEIT =
-            "<gray>Seltenheit: <white><seltenheit></white> (Basiswert <white><basis></white>)";
+            "<gray>Seltenheit: <white><seltenheit></white> (Faktor <white><faktor></white>)";
     public static final String WERT_KATEGORIE =
             "<gray>Kategorie: <white><kategorie></white> (Faktor <white><faktor></white>)";
     public static final String WERT_VERZAUBERUNG =
@@ -106,7 +124,8 @@ public final class Messages {
             "<gray>Gesamtwert des Inhalts: <gold><bold><punkte></bold></gold> Punkte";
     public static final String WERT_SUMME =
             "<gray>= <white><basis></white> * <white><anzahl></white> * <white><faktor></white>"
-                    + " + <white><bonus></white> = <gold><bold><punkte></bold></gold> Punkte";
+                    + " * <white><seltenheit></white> + <white><bonus></white>"
+                    + " = <gold><bold><punkte></bold></gold> Punkte";
 
     public static final String SIDEBAR_ZEILE_TOP =
             "<yellow><platz>.</yellow> <white><name></white> <gold><punkte></gold>";

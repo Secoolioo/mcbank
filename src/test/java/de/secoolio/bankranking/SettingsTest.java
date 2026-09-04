@@ -18,9 +18,11 @@ class SettingsTest {
         Settings settings = Settings.load(TestSupport.bundledConfig(), log);
 
         assertEquals(1.0, settings.rarityBase(ItemRarity.COMMON), 1e-9);
-        assertEquals(3.0, settings.rarityBase(ItemRarity.UNCOMMON), 1e-9);
-        assertEquals(7.0, settings.rarityBase(ItemRarity.RARE), 1e-9);
-        assertEquals(15.0, settings.rarityBase(ItemRarity.EPIC), 1e-9);
+        assertEquals(1.5, settings.rarityBase(ItemRarity.UNCOMMON), 1e-9);
+        assertEquals(2.0, settings.rarityBase(ItemRarity.RARE), 1e-9);
+        assertEquals(3.0, settings.rarityBase(ItemRarity.EPIC), 1e-9);
+        assertEquals(0.5, settings.fallbackValue(), 1e-9);
+        assertTrue(settings.confirmHead());
         assertEquals(2.0, settings.multiplier(Category.WAFFEN), 1e-9);
         assertEquals(1.5, settings.multiplier(Category.WERKZEUGE), 1e-9);
         assertEquals(1.5, settings.multiplier(Category.RUESTUNG), 1e-9);
@@ -43,8 +45,10 @@ class SettingsTest {
         Settings settings = Settings.load(TestSupport.config(""), log);
         assertEquals(1.0, settings.rarityBase(ItemRarity.COMMON), 1e-9);
         assertEquals(2.0, settings.enchantBonusPerLevel(), 1e-9);
+        assertEquals(0.5, settings.fallbackValue(), 1e-9);
         assertEquals(Settings.DEFAULT_NPC_NAME, settings.npcName());
-        assertEquals(11, log.warnings().size(), () -> "Warnungen: " + log.warnings());
+        // vier Seltenheits-Faktoren, sechs Kategorien, Verzauberungs-Bonus und Standardwert
+        assertEquals(12, log.warnings().size(), () -> "Warnungen: " + log.warnings());
     }
 
     @Test
@@ -53,10 +57,10 @@ class SettingsTest {
         TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
         Settings settings = Settings.load(TestSupport.config("""
                 punkte:
-                  seltenheit:
+                  seltenheit-faktoren:
                     common: 1.0
-                    uncommon: 3.0
-                    epic: 15.0
+                    uncommon: 1.5
+                    epic: 3.0
                   kategorien:
                     waffen: 2.0
                     werkzeuge: 1.5
@@ -65,9 +69,10 @@ class SettingsTest {
                     nahrung: 0.5
                     sonstiges: 1.0
                   verzauberung-bonus-pro-stufe: 2.0
+                  standardwert: 0.5
                 """), log);
-        assertEquals(7.0, settings.rarityBase(ItemRarity.RARE), 1e-9);
-        assertEquals(1, log.warningsContaining("punkte.seltenheit.rare"));
+        assertEquals(2.0, settings.rarityBase(ItemRarity.RARE), 1e-9);
+        assertEquals(1, log.warningsContaining("punkte.seltenheit-faktoren.rare"));
     }
 
     @Test
@@ -110,6 +115,18 @@ class SettingsTest {
         assertEquals(1, log.warningsContaining("legacy_stone"));
         assertEquals(1, log.warningsContaining("emerald"));
         assertEquals(1, log.warningsContaining("dessert"));
+    }
+
+    @Test
+    @DisplayName("Der alte Schlüssel punkte.seltenheit wird gemeldet")
+    void oldRarityKeyWarns() {
+        TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
+        Settings.load(TestSupport.config("""
+                punkte:
+                  seltenheit:
+                    common: 1.0
+                """), log);
+        assertEquals(1, log.warningsContaining("wird seit Version 1.1 nicht mehr benutzt"));
     }
 
     @Test

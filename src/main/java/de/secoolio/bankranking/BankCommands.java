@@ -221,9 +221,11 @@ public final class BankCommands {
         plugin.send(player, Messages.WERT_KOPF,
                 Placeholder.unparsed("material", valuation.facts().material().name()),
                 Placeholder.unparsed("anzahl", String.valueOf(valuation.facts().amount())));
+        player.sendMessage(Messages.mm(Messages.WERT_GRUNDWERT,
+                Placeholder.unparsed("basis", Scorer.format(valuation.base()))));
         player.sendMessage(Messages.mm(Messages.WERT_SELTENHEIT,
                 Placeholder.unparsed("seltenheit", valuation.facts().rarity().name()),
-                Placeholder.unparsed("basis", Scorer.format(valuation.base()))));
+                Placeholder.unparsed("faktor", Scorer.format(valuation.rarityFactor()))));
         player.sendMessage(Messages.mm(Messages.WERT_KATEGORIE,
                 Placeholder.unparsed("kategorie", valuation.category().displayName()),
                 Placeholder.unparsed("faktor", Scorer.format(valuation.multiplier()))));
@@ -234,6 +236,7 @@ public final class BankCommands {
                 Placeholder.unparsed("basis", Scorer.format(valuation.base())),
                 Placeholder.unparsed("anzahl", String.valueOf(valuation.facts().amount())),
                 Placeholder.unparsed("faktor", Scorer.format(valuation.multiplier())),
+                Placeholder.unparsed("seltenheit", Scorer.format(valuation.rarityFactor())),
                 Placeholder.unparsed("bonus", Scorer.format(valuation.enchantBonus())),
                 Placeholder.unparsed("punkte", Scorer.format(valuation.points()))));
         return Command.SINGLE_SUCCESS;

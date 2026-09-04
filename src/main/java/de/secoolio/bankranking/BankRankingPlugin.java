@@ -15,11 +15,12 @@ import org.bukkit.plugin.java.JavaPlugin;
 /** Einstiegspunkt: haelt die Bausteine zusammen und regelt Start, Reload und Herunterfahren. */
 public final class BankRankingPlugin extends JavaPlugin {
 
-    /** Wie oft die Rangliste turnusmaessig neu gezeichnet wird (600 Ticks = 30 Sekunden). */
+    /** Wie oft der Inhalt der Rangliste neu berechnet wird (600 Ticks = 30 Sekunden). */
     private static final long REFRESH_TICKS = 600L;
+    /** Wie oft geprueft wird, ob ein anderes Plugin die Rangliste verdraengt hat (1 Sekunde). */
+    private static final long GUARD_TICKS = 20L;
 
     private NamespacedKey npcKey;
-    private NamespacedKey buttonKey;
     private Settings settings;
     private Scorer scorer;
     private PlayerData playerData;
@@ -29,7 +30,6 @@ public final class BankRankingPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         this.npcKey = new NamespacedKey(this, "npc_id");
-        this.buttonKey = new NamespacedKey(this, "gui_button");
 
         saveDefaultConfig();
         loadSettings();
@@ -53,6 +53,7 @@ public final class BankRankingPlugin extends JavaPlugin {
             }
         });
         getServer().getScheduler().runTaskTimer(this, () -> this.ranking.refreshAll(), REFRESH_TICKS, REFRESH_TICKS);
+        getServer().getScheduler().runTaskTimer(this, () -> this.ranking.guard(), GUARD_TICKS, GUARD_TICKS);
 
         getLogger().info("Konfiguration geladen: " + this.settings.summaryLine());
         getLogger().info(this.playerData.size() + " Spieler-Konten und " + this.npcs.count() + " Bank-NPCs geladen");
@@ -99,10 +100,6 @@ public final class BankRankingPlugin extends JavaPlugin {
 
     public NamespacedKey npcKey() {
         return this.npcKey;
-    }
-
-    public NamespacedKey buttonKey() {
-        return this.buttonKey;
     }
 
     public Settings settings() {

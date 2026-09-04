@@ -166,19 +166,30 @@ public final class PlayerData {
         return entry == null ? 0.0 : entry.points();
     }
 
-    /** Platz in der Rangliste, 1-basiert; 0 wenn der Spieler noch keine Punkte hat. */
+    /**
+     * Platz in der Rangliste, 1-basiert; 0 wenn der Spieler noch keine Punkte hat.
+     *
+     * <p>Zaehlt, wie viele Konten besser stehen - ohne die ganze Liste zu kopieren und zu sortieren,
+     * weil das Bank-Fenster diesen Wert bei jedem Klick neu anzeigt.
+     */
     public int rank(UUID id) {
-        if (!this.entries.containsKey(id)) {
+        Entry own = this.entries.get(id);
+        if (own == null) {
             return 0;
         }
         int place = 1;
-        for (Map.Entry<UUID, Entry> entry : sorted()) {
+        for (Map.Entry<UUID, Entry> entry : this.entries.entrySet()) {
             if (entry.getKey().equals(id)) {
-                return place;
+                continue;
             }
-            place++;
+            Entry other = entry.getValue();
+            if (other.points() > own.points()
+                    || (other.points() == own.points()
+                        && String.CASE_INSENSITIVE_ORDER.compare(other.name(), own.name()) < 0)) {
+                place++;
+            }
         }
-        return 0;
+        return place;
     }
 
     public List<Map.Entry<UUID, Entry>> top(int count) {

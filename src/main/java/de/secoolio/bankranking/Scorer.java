@@ -33,7 +33,7 @@ public final class Scorer {
 
     /** Das Ergebnis der Bewertung eines Stapels, aufgeschluesselt fuer /bankranking wert. */
     public record Valuation(ItemFacts facts, Category category, double base, double multiplier,
-                            double enchantBonus, double points) {
+                            double rarityFactor, double enchantBonus, double points) {
     }
 
     /** Ergebnis des Auspackens: zu bewertende Items und leere Behaelter, die zurueckgehen. */
@@ -50,12 +50,14 @@ public final class Scorer {
 
     public Valuation value(ItemFacts facts) {
         Category category = this.classifier.classify(facts.material());
+        // Grundwert: eigener Eintrag aus der Config, sonst die eingebaute Materialtabelle.
         double base = this.settings.materialBase().getOrDefault(facts.material(),
-                this.settings.rarityBase(facts.rarity()));
+                MaterialValues.baseValue(facts.material(), this.settings.fallbackValue()));
         double multiplier = this.settings.multiplier(category);
+        double rarityFactor = this.settings.rarityBase(facts.rarity());
         double bonus = this.settings.enchantBonusPerLevel() * facts.enchantLevelSum();
-        double points = base * facts.amount() * multiplier + bonus;
-        return new Valuation(facts, category, base, multiplier, bonus, points);
+        double points = base * facts.amount() * multiplier * rarityFactor + bonus;
+        return new Valuation(facts, category, base, multiplier, rarityFactor, bonus, points);
     }
 
     /** Summe einer Einzahlung, auf eine Nachkommastelle gerundet. */

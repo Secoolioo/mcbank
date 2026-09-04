@@ -19,10 +19,13 @@ import org.bukkit.inventory.ItemRarity;
  */
 public final class Settings {
 
+    /** Seltenheits-Faktoren: sie multiplizieren den Materialwert, sie ersetzen ihn nicht. */
     public static final double DEFAULT_COMMON = 1.0;
-    public static final double DEFAULT_UNCOMMON = 3.0;
-    public static final double DEFAULT_RARE = 7.0;
-    public static final double DEFAULT_EPIC = 15.0;
+    public static final double DEFAULT_UNCOMMON = 1.5;
+    public static final double DEFAULT_RARE = 2.0;
+    public static final double DEFAULT_EPIC = 3.0;
+    /** Grundwert fuer Materialien ohne eigenen Eintrag. */
+    public static final double DEFAULT_FALLBACK_VALUE = 0.5;
     public static final double DEFAULT_ENCHANT_BONUS = 2.0;
     public static final String DEFAULT_NPC_NAME = "<gold><bold>Bank</bold></gold>";
     public static final String DEFAULT_NPC_DESCRIPTION = "<gray>Rechtsklick: Items abgeben";
@@ -31,37 +34,48 @@ public final class Settings {
     private final Map<ItemRarity, Double> rarityBase;
     private final Map<Category, Double> categoryMultiplier;
     private final double enchantBonusPerLevel;
+    private final double fallbackValue;
     private final Map<Material, Double> materialBase;
     private final Map<Material, Category> categoryOverrides;
     private final String npcName;
     private final String npcDescription;
+    private final boolean confirmHead;
     private final boolean sidebarEnabled;
     private final String sidebarTitle;
 
     private Settings(Map<ItemRarity, Double> rarityBase,
                      Map<Category, Double> categoryMultiplier,
                      double enchantBonusPerLevel,
+                     double fallbackValue,
                      Map<Material, Double> materialBase,
                      Map<Material, Category> categoryOverrides,
                      String npcName,
                      String npcDescription,
+                     boolean confirmHead,
                      boolean sidebarEnabled,
                      String sidebarTitle) {
         this.rarityBase = rarityBase;
         this.categoryMultiplier = categoryMultiplier;
         this.enchantBonusPerLevel = enchantBonusPerLevel;
+        this.fallbackValue = fallbackValue;
         this.materialBase = Map.copyOf(materialBase);
         this.categoryOverrides = Map.copyOf(categoryOverrides);
         this.npcName = npcName;
         this.npcDescription = npcDescription;
+        this.confirmHead = confirmHead;
         this.sidebarEnabled = sidebarEnabled;
         this.sidebarTitle = sidebarTitle;
     }
 
     public static Settings load(ConfigurationSection c, Logger log) {
+        if (c.get("punkte.seltenheit", null) != null) {
+            log.warning("config.yml: 'punkte.seltenheit' wird seit Version 1.1 nicht mehr benutzt."
+                    + " Die Seltenheit ist jetzt ein Faktor unter 'punkte.seltenheit-faktoren';"
+                    + " den Wert eines Materials legst du unter 'punkte.material-basiswerte' fest.");
+        }
         Map<ItemRarity, Double> rarity = new EnumMap<>(ItemRarity.class);
         for (ItemRarity value : ItemRarity.values()) {
-            String path = "punkte.seltenheit." + value.name().toLowerCase(Locale.ROOT);
+            String path = "punkte.seltenheit-faktoren." + value.name().toLowerCase(Locale.ROOT);
             rarity.put(value, readPositive(c, path, defaultRarity(value), log));
         }
 
@@ -72,6 +86,7 @@ public final class Settings {
         }
 
         double bonus = readPositive(c, "punkte.verzauberung-bonus-pro-stufe", DEFAULT_ENCHANT_BONUS, log);
+        double fallback = readPositive(c, "punkte.standardwert", DEFAULT_FALLBACK_VALUE, log);
 
         Map<Material, Double> materialBase = new HashMap<>();
         ConfigurationSection baseSection = c.getConfigurationSection("punkte.material-basiswerte");
@@ -111,11 +126,12 @@ public final class Settings {
 
         String npcName = readText(c, "npc.name", DEFAULT_NPC_NAME);
         String npcDescription = readText(c, "npc.beschreibung", DEFAULT_NPC_DESCRIPTION);
+        boolean confirmHead = !c.isSet("gui.haken-kopf") || c.getBoolean("gui.haken-kopf", true);
         boolean sidebarEnabled = !c.isSet("sidebar.aktiv") || c.getBoolean("sidebar.aktiv", true);
         String sidebarTitle = readText(c, "sidebar.titel", DEFAULT_SIDEBAR_TITLE);
 
-        return new Settings(rarity, multipliers, bonus, materialBase, overrides,
-                npcName, npcDescription, sidebarEnabled, sidebarTitle);
+        return new Settings(rarity, multipliers, bonus, fallback, materialBase, overrides,
+                npcName, npcDescription, confirmHead, sidebarEnabled, sidebarTitle);
     }
 
     private static double defaultRarity(ItemRarity rarity) {
@@ -128,7 +144,9 @@ public final class Settings {
     }
 
     private static double readPositive(ConfigurationSection c, String path, double fallback, Logger log) {
-        Object raw = c.get(path);
+        // Zwei-Argument-Form: sie fragt die im Jar mitgelieferten Standardwerte nicht ab, damit ein
+        // fehlender Schluessel in der Datei des Servers auch wirklich als fehlend gemeldet wird.
+        Object raw = c.get(path, null);
         if (raw == null) {
             log.warning("config.yml: '" + path + "' fehlt - Standardwert " + fallback + " wird verwendet");
             return fallback;
@@ -176,6 +194,10 @@ public final class Settings {
         return this.enchantBonusPerLevel;
     }
 
+    public double fallbackValue() {
+        return this.fallbackValue;
+    }
+
     public Map<Material, Double> materialBase() {
         return this.materialBase;
     }
@@ -192,6 +214,11 @@ public final class Settings {
         return this.npcDescription;
     }
 
+    /** Soll der Abgeben-Knopf ein Spielerkopf mit Haken sein? Sonst ein gruener Farbstoff. */
+    public boolean confirmHead() {
+        return this.confirmHead;
+    }
+
     public boolean sidebarEnabled() {
         return this.sidebarEnabled;
     }
@@ -203,6 +230,7 @@ public final class Settings {
     /** Einzeilige Zusammenfassung fuer das Server-Log beim Laden. */
     public String summaryLine() {
         StringBuilder sb = new StringBuilder();
+        sb.append(MaterialValues.size()).append(" Materialwerte eingebaut | Seltenheit x");
         for (ItemRarity rarity : ItemRarity.values()) {
             sb.append(rarity.name().toLowerCase(Locale.ROOT)).append('=')
                     .append(Scorer.format(rarityBase(rarity))).append(' ');

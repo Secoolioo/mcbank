@@ -2,8 +2,10 @@ package de.secoolio.bankranking;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import net.kyori.adventure.text.Component;
@@ -19,6 +21,7 @@ import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
+import org.bukkit.scoreboard.Team;
 
 /**
  * Die Rangliste am rechten Bildschirmrand (Scoreboard-Sidebar).
@@ -38,6 +41,8 @@ public final class RankingBoard {
     private final BankRankingPlugin plugin;
     private final Map<UUID, Scoreboard> boards = new HashMap<>();
     private boolean warnedAboutTakeover;
+    /** Spieler, fuer die das Anlegen scheiterte - fuer sie wird es nicht jede Sekunde erneut versucht. */
+    private final Set<UUID> failed = new HashSet<>();
 
     public RankingBoard(BankRankingPlugin plugin) {
         this.plugin = plugin;
@@ -55,20 +60,30 @@ public final class RankingBoard {
                     Messages.mm(this.plugin.settings().sidebarTitle()));
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
             objective.numberFormat(NumberFormat.blank());
+            // Fuer jede Zeile ein Team anlegen. Der Eintrag selbst ist unsichtbar (nur Formatcodes),
+            // der sichtbare Text steht im Praefix des Teams. Bewusst nur diese eine Technik:
+            // wuerde zusaetzlich Score#customName gesetzt, erschiene jede Zeile doppelt.
+            for (int index = 0; index < MAX_LINES; index++) {
+                Team team = board.registerNewTeam("line" + index);
+                team.addEntry(entryKey(index));
+            }
             this.boards.put(player.getUniqueId(), board);
             player.setScoreboard(board);
             refresh(player);
         } catch (RuntimeException ex) {
-            // Nie den Login blockieren, aber den Grund sichtbar machen.
+            // Nie den Login blockieren, aber den Grund sichtbar machen - und es nicht endlos wiederholen.
             this.boards.remove(player.getUniqueId());
+            this.failed.add(player.getUniqueId());
             this.plugin.getLogger().severe("Rangliste konnte für " + player.getName()
-                    + " nicht angezeigt werden: " + ex);
+                    + " nicht angezeigt werden: " + ex
+                    + " - erneuter Versuch nach /bankranking reload oder /bankranking sidebar");
         }
     }
 
     /** Vergisst das Scoreboard eines Spielers (beim Verlassen). */
     public void forget(Player player) {
         this.boards.remove(player.getUniqueId());
+        this.failed.remove(player.getUniqueId());
     }
 
     public void refreshAll() {
@@ -98,9 +113,13 @@ public final class RankingBoard {
             }
             List<Component> lines = buildLines(player, snapshot);
             for (int index = 0; index < lines.size() && index < MAX_LINES; index++) {
-                Score score = objective.getScore(entryKey(index));
-                score.customName(lines.get(index));
-                score.setScore(MAX_LINES - index);
+                // Der Zahlenwert legt die Reihenfolge fest (absteigend von oben nach unten),
+                // der sichtbare Text steht im Team-Praefix.
+                objective.getScore(entryKey(index)).setScore(MAX_LINES - index);
+                Team team = board.getTeam("line" + index);
+                if (team != null) {
+                    team.prefix(lines.get(index));
+                }
             }
             for (int index = lines.size(); index < MAX_LINES; index++) {
                 board.resetScores(entryKey(index));
@@ -122,6 +141,36 @@ public final class RankingBoard {
         }
     }
 
+    /**
+     * Sorgt dafuer, dass jeder Spieler die Rangliste auch wirklich sieht. Setzt ein anderes Plugin
+     * dem Spieler ein eigenes Scoreboard, wird unseres hier zurueckgeholt; wer noch gar keines hat
+     * (etwa weil er beim Start des Plugins schon online war), bekommt es jetzt.
+     */
+    public void guard() {
+        if (!this.plugin.settings().sidebarEnabled()) {
+            return;
+        }
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (this.failed.contains(player.getUniqueId())) {
+                continue;
+            }
+            Scoreboard own = this.boards.get(player.getUniqueId());
+            if (own == null) {
+                enable(player);
+                continue;
+            }
+            if (player.getScoreboard() != own) {
+                player.setScoreboard(own);
+                if (!this.warnedAboutTakeover) {
+                    this.warnedAboutTakeover = true;
+                    this.plugin.getLogger().warning("Ein anderes Plugin setzt ebenfalls ein Scoreboard."
+                            + " Die Rangliste wird deshalb laufend neu gesetzt."
+                            + " Wenn das stört: in der config.yml sidebar.aktiv auf false setzen.");
+                }
+            }
+        }
+    }
+
     /** Zeigt an, ob fuer diesen Spieler ein Ranglisten-Board angelegt ist. */
     public boolean hasBoard(Player player) {
         return this.boards.containsKey(player.getUniqueId());
@@ -136,11 +185,13 @@ public final class RankingBoard {
     /** Baut die Rangliste fuer einen Spieler neu auf, egal was vorher war. */
     public void reset(Player player) {
         this.boards.remove(player.getUniqueId());
+        this.failed.remove(player.getUniqueId());
         enable(player);
     }
 
     /** Nach einem Reload: Titel neu setzen bzw. Sidebar ein- oder ausschalten. */
     public void reapply() {
+        this.failed.clear();
         if (!this.plugin.settings().sidebarEnabled()) {
             shutdown();
             return;
@@ -228,10 +279,12 @@ public final class RankingBoard {
     }
 
     /**
-     * Eindeutiger, im Spiel unsichtbarer Eintragsname je Zeile (Paragraf-Zeichen plus Farbzeichen).
-     * Eintraege duerfen nicht mit '#' beginnen, sonst blendet der Client sie in der Sidebar aus.
+     * Eindeutiger, im Spiel unsichtbarer Eintragsname je Zeile: zwei Farbcodes, die der Client als
+     * Formatierung liest und damit als leeren Text darstellt. Eintraege duerfen nicht mit '#'
+     * beginnen, sonst blendet der Client sie in der Sidebar grundsaetzlich aus.
      */
     private static String entryKey(int index) {
-        return "§" + "0123456789abcdef".charAt(index % 16);
+        char code = "0123456789abcdef".charAt(index % 16);
+        return "§" + code + "§r";
     }
 }

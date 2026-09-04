@@ -1,56 +1,45 @@
 # ============================================================
 #  BankRanking - Konfiguration
 #
-#  Alle Werte hier lassen sich ohne Neukompilieren aendern.
 #  Nach dem Bearbeiten:  /bankranking reload   (oder Server-Neustart)
 #
-#  Punkte-Formel pro Item-Stapel in der Bank:
-#    Punkte = Basiswert * Anzahl * Kategorie-Faktor
+#  Punkte-Formel pro Item-Stapel:
+#    Punkte = Grundwert * Anzahl * Kategorie-Faktor * Seltenheits-Faktor
 #             + Verzauberungs-Bonus * Summe aller Verzauberungsstufen
-#  Basiswert = punkte.material-basiswerte[Material], falls dort eingetragen,
-#              sonst punkte.seltenheit[Minecraft-Seltenheit des Items]
-#  Das Ergebnis jeder Einzahlung wird auf eine Nachkommastelle gerundet.
+#
+#  Der Grundwert kommt aus einer eingebauten Tabelle mit ueber 200 Materialien:
+#  Erde ist billig, ein Diamant teuer, Netherite sehr teuer. Bloecke zaehlen wie
+#  neun Rohstoffe, Werkzeuge und Ruestung nach ihrer Stufe. Einzelne Werte kannst
+#  du unten unter material-basiswerte ueberschreiben.
 #
 #  Tipp: Item in die Haupthand nehmen und  /bankranking wert  eingeben -
 #  dann siehst du die komplette Rechnung fuer genau dieses Item.
 #
 #  Ungueltige oder fehlende Werte werden beim Laden mit einer Warnung im
-#  Server-Log gemeldet und durch den Standardwert ersetzt - das Plugin
-#  laeuft trotzdem weiter.
+#  Server-Log gemeldet und durch den Standardwert ersetzt.
 # ============================================================
 
 npc:
-  # Name ueber dem Kopf des Bank-NPCs (MiniMessage-Format),
-  # z.B. "<gold><bold>Bank</bold></gold>" oder "<aqua>Sparkasse".
+  # Name ueber dem Kopf des Bank-NPCs (MiniMessage-Format).
   name: "<gold><bold>Bank</bold></gold>"
   # Kleiner Zusatztext unter dem Namen. Leer lassen ("") blendet ihn aus.
   beschreibung: "<gray>Rechtsklick: Items abgeben"
 
+gui:
+  # Abgeben-Knopf als Spielerkopf mit gruenem Haken (true) oder als gruener Farbstoff (false).
+  # Der Kopf braucht beim ersten Anzeigen eine Internetverbindung des Spielers.
+  haken-kopf: true
+
 sidebar:
   # Rangliste am rechten Bildschirmrand ein- oder ausschalten.
-  # Hinweis: Jeder Spieler bekommt dafuer ein eigenes Scoreboard. Sollte spaeter ein Plugin
-  # dazukommen, das farbige Namen ueber den Koepfen oder eine eigene Sidebar setzt (z.B. TAB,
-  # Towny-Nametags), dann hier auf false stellen.
+  # Hinweis: Jeder Spieler bekommt dafuer ein eigenes Scoreboard, und Minecraft zeigt jedem
+  # Spieler immer nur eines. Setzt ein anderes Plugin (z.B. TAB oder Towny-Nametags) ebenfalls
+  # eines, holt sich BankRanking die Anzeige jede Sekunde zurueck. Stoert das, hier auf false setzen.
   aktiv: true
   # Ueberschrift der Rangliste (MiniMessage-Format).
   titel: "<gold><bold>Rangliste</bold></gold>"
 
 punkte:
-  # Basiswert je Seltenheitsstufe. Die Seltenheit ist die eingebaute
-  # Minecraft-Seltenheit (Farbe des Item-Namens: weiss=common, gelb=uncommon,
-  # tuerkis=rare, lila=epic).
-  # ACHTUNG: Fast alle normalen Items sind "common" - auch Diamanten, Netherite,
-  # Diamantschwert und Netherite-Ruestung. Verzaubern aendert diese Grundwertung
-  # NICHT; dafuer gibt es den Verzauberungs-Bonus weiter unten.
-  #   uncommon: z.B. Totem der Unsterblichkeit, Herz des Meeres, Kettenruestung, Schallplatten
-  #   rare:     z.B. Verzaubertes Buch, Verzauberter goldener Apfel, Dreizack, Netherstern
-  #   epic:     z.B. Elytra, Streitkolben, Drachenei
-  seltenheit:
-    common: 1.0
-    uncommon: 3.0
-    rare: 7.0
-    epic: 15.0
-
   # Multiplikator je Kategorie. 1.0 = neutral, 2.0 = doppelt, 0.5 = halb.
   # Welche Kategorie ein Item hat, zeigt /bankranking wert.
   kategorien:
@@ -61,21 +50,33 @@ punkte:
     nahrung: 0.5       # alles Essbare
     sonstiges: 1.0     # alles andere
 
-  # Bonuspunkte pro Verzauberungsstufe. Gezaehlt wird die Summe aller Stufen auf
-  # dem Item (auch Fluch-Verzauberungen), bei verzauberten Buechern die
-  # gespeicherten Verzauberungen. Der Bonus gilt einmal pro Stapel.
+  # Zusaetzlicher Faktor nach der eingebauten Minecraft-Seltenheit (Farbe des Item-Namens).
+  # Er multipliziert den Grundwert, er ersetzt ihn nicht. Fast alle Items sind "common".
+  #   uncommon: z.B. Totem der Unsterblichkeit, Herz des Meeres, Kettenruestung, Schallplatten
+  #   rare:     z.B. Verzaubertes Buch, Verzauberter goldener Apfel, Dreizack, Netherstern
+  #   epic:     z.B. Elytra, Streitkolben, Drachenei
+  seltenheit-faktoren:
+    common: 1.0
+    uncommon: 1.5
+    rare: 2.0
+    epic: 3.0
+
+  # Bonuspunkte pro Verzauberungsstufe. Gezaehlt wird die Summe aller Stufen auf dem Item
+  # (auch Fluch-Verzauberungen), bei verzauberten Buechern die gespeicherten Verzauberungen.
+  # Der Bonus gilt einmal pro Stapel.
   # Beispiel: Schaerfe V + Haltbarkeit III = 8 Stufen -> 8 * 2.0 = 16 Bonuspunkte
   verzauberung-bonus-pro-stufe: 2.0
 
-  # OPTIONAL: Fester Basiswert fuer einzelne Materialien. Ersetzt den
-  # Seltenheits-Basiswert; Kategorie-Faktor und Verzauberungs-Bonus gelten weiter.
-  # Sinnvoll, weil Minecraft fast alles als "common" einstuft.
+  # Grundwert fuer Materialien, die in der eingebauten Tabelle nicht vorkommen
+  # (meist Bau- und Dekobloecke).
+  standardwert: 0.5
+
+  # OPTIONAL: Eigener Grundwert fuer einzelne Materialien - ueberschreibt die eingebaute Tabelle.
   # Material-Namen wie bei /give (Gross-/Kleinschreibung egal).
-  # Leer lassen ({}), wenn nicht gewuenscht. Beispiel:
+  # Beispiel:
   #   material-basiswerte:
-  #     diamond: 20.0
-  #     netherite_ingot: 60.0
-  #     diamond_sword: 25.0
+  #     diamond: 30.0
+  #     dirt: 0.01
   material-basiswerte: {}
 
   # OPTIONAL: Kategorie einzelner Materialien ueberschreiben.
@@ -83,5 +84,4 @@ punkte:
   # Beispiel:
   #   kategorie-ueberschreibungen:
   #     diamond_axe: waffen
-  #     totem_of_undying: ruestung
   kategorie-ueberschreibungen: {}

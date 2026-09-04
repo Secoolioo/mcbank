@@ -113,16 +113,24 @@ public final class BankListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        if (event.getRawSlot() == BankGui.CONFIRM_SLOT) {
-            // Deckt auch Zahlentasten, Zweithand-Tausch, Fallenlassen und Kreativ-Klonen ab:
-            // all diese Klicks melden den Zielslot als Rohslot.
-            event.setCancelled(true);
-            ClickType click = event.getClick();
-            if (click == ClickType.LEFT || click == ClickType.RIGHT
-                    || click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT) {
-                gui.confirm(player);
+        int rawSlot = event.getRawSlot();
+        if (rawSlot >= 0 && rawSlot < BankGui.SIZE) {
+            if (rawSlot == BankGui.CONFIRM_SLOT) {
+                // Deckt auch Zahlentasten, Zweithand-Tausch, Fallenlassen und Kreativ-Klonen ab:
+                // all diese Klicks melden den Zielplatz als Rohslot.
+                event.setCancelled(true);
+                ClickType click = event.getClick();
+                if (click == ClickType.LEFT || click == ClickType.RIGHT
+                        || click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT) {
+                    gui.confirm(player);
+                }
+                return;
             }
-            return;
+            if (!BankGui.isDepositSlot(rawSlot)) {
+                // Rahmen, Wertanzeige und Kontostand sind nur Anzeige.
+                event.setCancelled(true);
+                return;
+            }
         }
         if (event.getAction() == InventoryAction.COLLECT_TO_CURSOR && gui.isButton(event.getCursor())) {
             // Ein Doppelklick saugt passende Items aus beiden Inventaren - auch den Knopf.
@@ -130,21 +138,38 @@ public final class BankListener implements Listener {
             return;
         }
         if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
-                && event.getRawSlot() >= BankGui.SIZE
+                && rawSlot >= BankGui.SIZE
                 && gui.isButton(event.getCurrentItem())) {
             event.setCancelled(true);
+            return;
         }
+        scheduleInfoUpdate(gui, player);
     }
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (!(event.getInventory().getHolder(false) instanceof BankGui)) {
+        if (!(event.getInventory().getHolder(false) instanceof BankGui gui)) {
             return;
         }
-        if (event.getRawSlots().contains(BankGui.CONFIRM_SLOT)) {
-            // Ein Zieh-Vorgang laesst sich nur ganz oder gar nicht abbrechen.
-            event.setCancelled(true);
+        for (int rawSlot : event.getRawSlots()) {
+            if (rawSlot < BankGui.SIZE && !BankGui.isDepositSlot(rawSlot)) {
+                // Ein Zieh-Vorgang laesst sich nur ganz oder gar nicht abbrechen.
+                event.setCancelled(true);
+                return;
+            }
         }
+        if (event.getWhoClicked() instanceof Player player) {
+            scheduleInfoUpdate(gui, player);
+        }
+    }
+
+    /** Wertanzeige und Kontostand einen Tick spaeter neu schreiben, wenn der Klick durch ist. */
+    private void scheduleInfoUpdate(BankGui gui, Player player) {
+        this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+            if (player.isOnline() && player.getOpenInventory().getTopInventory().getHolder(false) == gui) {
+                gui.updateInfo(player);
+            }
+        });
     }
 
     @EventHandler
