@@ -37,6 +37,7 @@ public final class RankingBoard {
 
     private final BankRankingPlugin plugin;
     private final Map<UUID, Scoreboard> boards = new HashMap<>();
+    private boolean warnedAboutTakeover;
 
     public RankingBoard(BankRankingPlugin plugin) {
         this.plugin = plugin;
@@ -47,15 +48,22 @@ public final class RankingBoard {
         if (!this.plugin.settings().sidebarEnabled()) {
             return;
         }
-        ScoreboardManager manager = Bukkit.getScoreboardManager();
-        Scoreboard board = manager.getNewScoreboard();
-        Objective objective = board.registerNewObjective(OBJECTIVE, Criteria.DUMMY,
-                Messages.mm(this.plugin.settings().sidebarTitle()));
-        objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-        objective.numberFormat(NumberFormat.blank());
-        this.boards.put(player.getUniqueId(), board);
-        player.setScoreboard(board);
-        refresh(player);
+        try {
+            ScoreboardManager manager = Bukkit.getScoreboardManager();
+            Scoreboard board = manager.getNewScoreboard();
+            Objective objective = board.registerNewObjective(OBJECTIVE, Criteria.DUMMY,
+                    Messages.mm(this.plugin.settings().sidebarTitle()));
+            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+            objective.numberFormat(NumberFormat.blank());
+            this.boards.put(player.getUniqueId(), board);
+            player.setScoreboard(board);
+            refresh(player);
+        } catch (RuntimeException ex) {
+            // Nie den Login blockieren, aber den Grund sichtbar machen.
+            this.boards.remove(player.getUniqueId());
+            this.plugin.getLogger().severe("Rangliste konnte für " + player.getName()
+                    + " nicht angezeigt werden: " + ex);
+        }
     }
 
     /** Vergisst das Scoreboard eines Spielers (beim Verlassen). */
@@ -83,19 +91,52 @@ public final class RankingBoard {
         if (board == null) {
             return;
         }
-        Objective objective = board.getObjective(OBJECTIVE);
-        if (objective == null) {
-            return;
+        try {
+            Objective objective = board.getObjective(OBJECTIVE);
+            if (objective == null) {
+                return;
+            }
+            List<Component> lines = buildLines(player, snapshot);
+            for (int index = 0; index < lines.size() && index < MAX_LINES; index++) {
+                Score score = objective.getScore(entryKey(index));
+                score.customName(lines.get(index));
+                score.setScore(MAX_LINES - index);
+            }
+            for (int index = lines.size(); index < MAX_LINES; index++) {
+                board.resetScores(entryKey(index));
+            }
+            // Hat ein anderes Plugin dem Spieler inzwischen ein eigenes Scoreboard gegeben,
+            // wird unseres wieder gezeigt. Ein Server sieht immer nur ein Scoreboard je Spieler.
+            if (player.getScoreboard() != board) {
+                player.setScoreboard(board);
+                if (!this.warnedAboutTakeover) {
+                    this.warnedAboutTakeover = true;
+                    this.plugin.getLogger().warning("Ein anderes Plugin setzt ebenfalls ein Scoreboard."
+                            + " Die Rangliste wird deshalb regelmäßig neu gesetzt."
+                            + " Wenn das stört: in der config.yml sidebar.aktiv auf false setzen.");
+                }
+            }
+        } catch (RuntimeException ex) {
+            this.plugin.getLogger().severe("Rangliste konnte für " + player.getName()
+                    + " nicht aktualisiert werden: " + ex);
         }
-        List<Component> lines = buildLines(player, snapshot);
-        for (int index = 0; index < lines.size() && index < MAX_LINES; index++) {
-            Score score = objective.getScore(entryKey(index));
-            score.customName(lines.get(index));
-            score.setScore(MAX_LINES - index);
-        }
-        for (int index = lines.size(); index < MAX_LINES; index++) {
-            board.resetScores(entryKey(index));
-        }
+    }
+
+    /** Zeigt an, ob fuer diesen Spieler ein Ranglisten-Board angelegt ist. */
+    public boolean hasBoard(Player player) {
+        return this.boards.containsKey(player.getUniqueId());
+    }
+
+    /** Zeigt an, ob der Spieler gerade wirklich unsere Rangliste sieht. */
+    public boolean isShowing(Player player) {
+        Scoreboard board = this.boards.get(player.getUniqueId());
+        return board != null && player.getScoreboard() == board;
+    }
+
+    /** Baut die Rangliste fuer einen Spieler neu auf, egal was vorher war. */
+    public void reset(Player player) {
+        this.boards.remove(player.getUniqueId());
+        enable(player);
     }
 
     /** Nach einem Reload: Titel neu setzen bzw. Sidebar ein- oder ausschalten. */

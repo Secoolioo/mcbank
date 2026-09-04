@@ -51,7 +51,8 @@ public final class Messages {
             "<gold>/bankranking removenpc <nr></gold> <gray>- Bank-NPC entfernen",
             "<gold>/bankranking skin <nr> <Spieler></gold> <gray>- Skin eines NPCs ändern",
             "<gold>/bankranking reload</gold> <gray>- config.yml und players.yml neu laden",
-            "<gold>/bankranking wert</gold> <gray>- Punktwert des Items in deiner Hand anzeigen"
+            "<gold>/bankranking wert</gold> <gray>- Punktwert des Items in deiner Hand anzeigen",
+            "<gold>/bankranking sidebar</gold> <gray>- Rangliste prüfen und neu aufbauen"
     };
 
     public static final String NPC_GESETZT =
@@ -77,6 +78,16 @@ public final class Messages {
                     + " <dark_gray>|</dark_gray> <status>";
     public static final String NPC_STATUS_DA = "<green>geladen</green>";
     public static final String NPC_STATUS_FEHLT = "<yellow>Chunk nicht geladen</yellow>";
+
+    public static final String SIDEBAR_KOPF = "<gold><bold>Rangliste-Status</bold></gold>";
+    public static final String SIDEBAR_STATUS_CONFIG = "<gray>In der config.yml eingeschaltet: <wert>";
+    public static final String SIDEBAR_STATUS_BOARD = "<gray>Für dich angelegt: <wert>";
+    public static final String SIDEBAR_STATUS_SICHTBAR = "<gray>Wird dir gerade angezeigt: <wert>";
+    public static final String SIDEBAR_JA = "<green>ja</green>";
+    public static final String SIDEBAR_NEIN = "<red>nein</red>";
+    public static final String SIDEBAR_NEU = "<green>Rangliste neu aufgebaut - sie sollte jetzt rechts stehen.";
+    public static final String SIDEBAR_AUS =
+            "<yellow>Die Rangliste ist in der config.yml abgeschaltet (sidebar.aktiv: false).";
 
     public static final String RELOAD_OK =
             "<green>Konfiguration neu geladen. Eventuelle Warnungen stehen im Server-Log.";

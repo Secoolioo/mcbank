@@ -92,6 +92,7 @@ public final class BankCommands {
                     return Command.SINGLE_SUCCESS;
                 }))
                 .then(Commands.literal("wert").executes(ctx -> value(plugin, ctx)))
+                .then(Commands.literal("sidebar").executes(ctx -> sidebar(plugin, ctx)))
                 .build(), "Verwaltung des Bank-Plugins");
     }
 
@@ -165,6 +166,29 @@ public final class BankCommands {
         plugin.send(sender, Messages.NPC_SKIN_GEAENDERT,
                 Placeholder.unparsed("nr", String.valueOf(id)),
                 Placeholder.unparsed("skin", skin));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Zeigt den Zustand der Rangliste und baut sie neu auf. */
+    private static int sidebar(BankRankingPlugin plugin, CommandContext<CommandSourceStack> ctx) {
+        Player player = playerOf(plugin, ctx);
+        if (player == null) {
+            return Command.SINGLE_SUCCESS;
+        }
+        boolean enabled = plugin.settings().sidebarEnabled();
+        plugin.send(player, Messages.SIDEBAR_KOPF);
+        player.sendMessage(Messages.mm(Messages.SIDEBAR_STATUS_CONFIG
+                .replace("<wert>", enabled ? Messages.SIDEBAR_JA : Messages.SIDEBAR_NEIN)));
+        player.sendMessage(Messages.mm(Messages.SIDEBAR_STATUS_BOARD
+                .replace("<wert>", plugin.ranking().hasBoard(player) ? Messages.SIDEBAR_JA : Messages.SIDEBAR_NEIN)));
+        player.sendMessage(Messages.mm(Messages.SIDEBAR_STATUS_SICHTBAR
+                .replace("<wert>", plugin.ranking().isShowing(player) ? Messages.SIDEBAR_JA : Messages.SIDEBAR_NEIN)));
+        if (!enabled) {
+            plugin.send(player, Messages.SIDEBAR_AUS);
+            return Command.SINGLE_SUCCESS;
+        }
+        plugin.ranking().reset(player);
+        plugin.send(player, Messages.SIDEBAR_NEU);
         return Command.SINGLE_SUCCESS;
     }
 

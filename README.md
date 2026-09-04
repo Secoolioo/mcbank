@@ -26,6 +26,7 @@ Punkte bekommen, plus eine Rangliste am rechten Bildschirmrand.
 | `/bankranking skin <nr> <Spieler>` | `bankranking.admin` | Ändert den Skin eines NPCs. |
 | `/bankranking reload` | `bankranking.admin` | Lädt `config.yml` und `players.yml` neu. |
 | `/bankranking wert` | `bankranking.admin` | Zeigt die komplette Rechnung für das Item in der Hand. |
+| `/bankranking sidebar` | `bankranking.admin` | Prüft die Rangliste und baut sie neu auf. |
 
 Das Recht `bankranking.use` (standardmäßig für alle) erlaubt das Benutzen der NPCs.
 
@@ -64,17 +65,17 @@ Es genügt eine Java-Laufzeit; Gradle lädt sich das nötige JDK 25 selbst nach 
 ./gradlew build
 ```
 
-Ergebnis: `build/libs/BankRanking-1.0.0.jar`.
+Ergebnis: `build/libs/BankRanking-1.0.1.jar`.
 
 ## Herunterladen
 
-Das fertige Plugin liegt fertig gebaut unter [`dist/BankRanking-1.0.0.jar`](dist/BankRanking-1.0.0.jar)
+Das fertige Plugin liegt fertig gebaut unter [`dist/BankRanking-1.0.1.jar`](dist/BankRanking-1.0.1.jar)
 und zusätzlich als Release-Anhang.
 
 Direkt auf dem Server, im Ordner `plugins/`:
 
 ```bash
-wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-1.0.0.jar
+wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-1.0.1.jar
 ```
 
 Oder das ganze Projekt holen:
