@@ -1,0 +1,21 @@
+name: BankRanking
+version: '${version}'
+main: de.secoolio.bankranking.BankRankingPlugin
+api-version: '26.2'
+description: Item-Bank mit Punkte-Rangliste (NPCs mit Spieler-Skin, Sidebar, /reichste, /kontostand)
+author: secoolio
+load: POSTWORLD
+
+permissions:
+  bankranking.admin:
+    description: Verwaltung (/spawnrank, /bankranking list|removenpc|skin|reload|wert)
+    default: op
+  bankranking.use:
+    description: Darf die Bank-NPCs benutzen
+    default: true
+  bankranking.kontostand:
+    description: Darf /kontostand benutzen
+    default: true
+  bankranking.reichste:
+    description: Darf /reichste benutzen
+    default: true

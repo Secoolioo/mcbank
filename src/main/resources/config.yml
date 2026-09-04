@@ -1,0 +1,87 @@
+# ============================================================
+#  BankRanking - Konfiguration
+#
+#  Alle Werte hier lassen sich ohne Neukompilieren aendern.
+#  Nach dem Bearbeiten:  /bankranking reload   (oder Server-Neustart)
+#
+#  Punkte-Formel pro Item-Stapel in der Bank:
+#    Punkte = Basiswert * Anzahl * Kategorie-Faktor
+#             + Verzauberungs-Bonus * Summe aller Verzauberungsstufen
+#  Basiswert = punkte.material-basiswerte[Material], falls dort eingetragen,
+#              sonst punkte.seltenheit[Minecraft-Seltenheit des Items]
+#  Das Ergebnis jeder Einzahlung wird auf eine Nachkommastelle gerundet.
+#
+#  Tipp: Item in die Haupthand nehmen und  /bankranking wert  eingeben -
+#  dann siehst du die komplette Rechnung fuer genau dieses Item.
+#
+#  Ungueltige oder fehlende Werte werden beim Laden mit einer Warnung im
+#  Server-Log gemeldet und durch den Standardwert ersetzt - das Plugin
+#  laeuft trotzdem weiter.
+# ============================================================
+
+npc:
+  # Name ueber dem Kopf des Bank-NPCs (MiniMessage-Format),
+  # z.B. "<gold><bold>Bank</bold></gold>" oder "<aqua>Sparkasse".
+  name: "<gold><bold>Bank</bold></gold>"
+  # Kleiner Zusatztext unter dem Namen. Leer lassen ("") blendet ihn aus.
+  beschreibung: "<gray>Rechtsklick: Items abgeben"
+
+sidebar:
+  # Rangliste am rechten Bildschirmrand ein- oder ausschalten.
+  # Hinweis: Jeder Spieler bekommt dafuer ein eigenes Scoreboard. Sollte spaeter ein Plugin
+  # dazukommen, das farbige Namen ueber den Koepfen oder eine eigene Sidebar setzt (z.B. TAB,
+  # Towny-Nametags), dann hier auf false stellen.
+  aktiv: true
+  # Ueberschrift der Rangliste (MiniMessage-Format).
+  titel: "<gold><bold>Rangliste</bold></gold>"
+
+punkte:
+  # Basiswert je Seltenheitsstufe. Die Seltenheit ist die eingebaute
+  # Minecraft-Seltenheit (Farbe des Item-Namens: weiss=common, gelb=uncommon,
+  # tuerkis=rare, lila=epic).
+  # ACHTUNG: Fast alle normalen Items sind "common" - auch Diamanten, Netherite,
+  # Diamantschwert und Netherite-Ruestung. Verzaubern aendert diese Grundwertung
+  # NICHT; dafuer gibt es den Verzauberungs-Bonus weiter unten.
+  #   uncommon: z.B. Totem der Unsterblichkeit, Herz des Meeres, Kettenruestung, Schallplatten
+  #   rare:     z.B. Verzaubertes Buch, Verzauberter goldener Apfel, Dreizack, Netherstern
+  #   epic:     z.B. Elytra, Streitkolben, Drachenei
+  seltenheit:
+    common: 1.0
+    uncommon: 3.0
+    rare: 7.0
+    epic: 15.0
+
+  # Multiplikator je Kategorie. 1.0 = neutral, 2.0 = doppelt, 0.5 = halb.
+  # Welche Kategorie ein Item hat, zeigt /bankranking wert.
+  kategorien:
+    waffen: 2.0        # Schwerter, Bogen, Armbrust, Dreizack, Streitkolben, Speere, Pfeile
+    werkzeuge: 1.5     # Spitzhacke, Axt, Schaufel, Hacke, Schere, Angel, Feuerzeug, Eimer, ...
+    ruestung: 1.5      # Helm, Brustplatte, Hose, Stiefel, Schild, Elytra, Tierruestung
+    ressourcen: 1.0    # Erze, Barren, Rohmetalle, Edelsteine, Holz, Stein, Mob-Drops, Mineralbloecke
+    nahrung: 0.5       # alles Essbare
+    sonstiges: 1.0     # alles andere
+
+  # Bonuspunkte pro Verzauberungsstufe. Gezaehlt wird die Summe aller Stufen auf
+  # dem Item (auch Fluch-Verzauberungen), bei verzauberten Buechern die
+  # gespeicherten Verzauberungen. Der Bonus gilt einmal pro Stapel.
+  # Beispiel: Schaerfe V + Haltbarkeit III = 8 Stufen -> 8 * 2.0 = 16 Bonuspunkte
+  verzauberung-bonus-pro-stufe: 2.0
+
+  # OPTIONAL: Fester Basiswert fuer einzelne Materialien. Ersetzt den
+  # Seltenheits-Basiswert; Kategorie-Faktor und Verzauberungs-Bonus gelten weiter.
+  # Sinnvoll, weil Minecraft fast alles als "common" einstuft.
+  # Material-Namen wie bei /give (Gross-/Kleinschreibung egal).
+  # Leer lassen ({}), wenn nicht gewuenscht. Beispiel:
+  #   material-basiswerte:
+  #     diamond: 20.0
+  #     netherite_ingot: 60.0
+  #     diamond_sword: 25.0
+  material-basiswerte: {}
+
+  # OPTIONAL: Kategorie einzelner Materialien ueberschreiben.
+  # Erlaubte Kategorien: waffen, werkzeuge, ruestung, ressourcen, nahrung, sonstiges
+  # Beispiel:
+  #   kategorie-ueberschreibungen:
+  #     diamond_axe: waffen
+  #     totem_of_undying: ruestung
+  kategorie-ueberschreibungen: {}
