@@ -91,15 +91,21 @@ def font_json():
 
 
 def _raster(zeichen, spalten):
-    """Teilt den Zeichenvorrat in Zeilen auf und fuellt die letzte mit Leerstellen.
+    """Teilt den Zeichenvorrat in Zeilen auf und fuellt die letzte auf.
 
     Minecraft teilt die Textur nach Anzahl der Zeilen und Laenge der laengsten Zeile auf,
     alle Zeilen muessen also gleich lang sein.
+
+    Gefuellt wird mit dem Nullzeichen, nicht mit Leerzeichen. Ein Leerzeichen ist ein echter
+    Codepoint (U+0020): stuenden mehrere davon als Fuellung da, definierte das Pack denselben
+    Codepoint mehrfach, und der Client meldete beim Laden
+    "Codepoint '20' declared multiple times". Das Nullzeichen ist die dafuer vorgesehene
+    Markierung fuer eine unbenutzte Zelle.
     """
     zeilen = []
     for start in range(0, len(zeichen), spalten):
         stueck = zeichen[start:start + spalten]
-        zeilen.append(stueck + " " * (spalten - len(stueck)))
+        zeilen.append(stueck + "\u0000" * (spalten - len(stueck)))
     return zeilen
 
 
@@ -234,7 +240,9 @@ def pruefe_pack(ziel):
                           % (nummer, bild.width, bild.height, spalten, len(p["chars"])))
         for zeile in p["chars"]:
             for z in zeile:
-                if z == " ":
+                # Das Nullzeichen markiert eine unbenutzte Zelle und ist kein Codepoint;
+                # es darf beliebig oft vorkommen.
+                if z == " " or z == "\u0000":
                     continue
                 if z in belegt:
                     fehler.append("Codepoint U+%04X doppelt vergeben (Provider %d und %d)"
