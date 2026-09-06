@@ -51,6 +51,12 @@ public final class CategoryClassifier {
         if (override != null) {
             return override;
         }
+        // Eine abgeleitete Form erbt die Kategorie ihres Rohstoffs: sonst wechselt zum Beispiel
+        // getrockneter Seetang beim Pressen zum Block von Nahrung (x0,5) nach Sonstiges (x1,0).
+        Material source = MaterialValues.blockSource(material).orElse(null);
+        if (source != null && source != material) {
+            return classify(source);
+        }
         String n = material.name();
 
         if (RUESTUNG.contains(n)

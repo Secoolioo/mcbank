@@ -68,22 +68,28 @@ punkte:
   verzauberung-bonus-pro-stufe: 2.0
 
   # Grundwert fuer Materialien, die in der eingebauten Tabelle nicht vorkommen
-  # (meist Bau- und Dekobloecke).
-  standardwert: 0.5
+  # (meist Bau- und Dekobloecke). Bewusst niedrig: sonst waere es lohnend, billigen Stein
+  # zu Treppen oder Platten zu verarbeiten und den Unterschied als Punkte zu kassieren.
+  standardwert: 0.05
 
   # ----- Bremse 1: je reicher, desto weniger zaehlt ein Item -----
+  # Gebucht wird die Flaeche unter der Kurve: eine grosse Einzahlung bringt genau so viel wie
+  # viele kleine. Horten lohnt sich also nicht.
   # Damit die Rangliste spannend bleibt und niemand uneinholbar davonzieht.
   # Faktor = (schwelle / (schwelle + Kontostand)) hoch staerke
   # Mit den Standardwerten:   0 Punkte -> 100%,  5.000 -> 66%,  50.000 -> 24%,  150.000 -> 13%
   # Kleinere staerke = sanfter (0.4), groessere = haerter (1.0).
   wohlstands-bremse:
     aktiv: true
-    schwelle: 5000.0
+    schwelle: 5000.0        # muss groesser als 0 sein
     staerke: 0.6
-    # Weiter faellt der Faktor nie, damit Abgeben immer noch etwas bringt.
+    # Weiter faellt der Faktor nie, damit Abgeben immer noch etwas bringt (0 bis 1).
     mindestfaktor: 0.05
 
   # ----- Bremse 2: Marktsaettigung je Material -----
+  # Ebenfalls als Flaeche gebucht: Reihenfolge und Stueckelung der Stapel sind egal.
+  # Bloecke, Nuggets, Ziegel und Steinvarianten zaehlen auf den Zaehler ihres Rohstoffs,
+  # Umkraften bringt also nichts.
   # Wer denselben Rohstoff massenhaft abliefert, drueckt dessen Preis - so bringen Farmen
   # immer weniger, ohne dass seltene Einzelfunde darunter leiden.
   # Faktor = schwelle / (schwelle + bereits abgegebene Rohpunkte dieses Materials)
@@ -92,8 +98,9 @@ punkte:
     aktiv: true
     schwelle: 5000.0
     # Halbwertszeit in Stunden: nach dieser Zeit ist der Zaehler halbiert, der Preis erholt sich.
+    # Muss groesser als 0 sein.
     erholung-stunden: 24.0
-    # So weit sinkt der Preis eines Materials hoechstens.
+    # So weit sinkt der Preis eines Materials hoechstens (0 bis 1).
     mindestfaktor: 0.1
 
   # OPTIONAL: Eigener Grundwert fuer einzelne Materialien - ueberschreibt die eingebaute Tabelle.

@@ -15,24 +15,24 @@ import org.bukkit.Material;
 public final class Saturation {
 
     /** Zähler unter diesem Wert werden verworfen, damit players.yml nicht zuwuchert. */
-    private static final double FORGET_BELOW = 1.0;
+    static final double FORGET_BELOW = 1.0;
 
     private final Map<Material, Double> amounts = new HashMap<>();
     private long lastDecay;
 
     public Saturation(long now) {
-        this.lastDecay = now;
+        this.lastDecay = Math.max(0L, now);
     }
 
     /** Laedt einen gespeicherten Zaehler. */
     public void put(Material material, double value) {
-        if (value >= FORGET_BELOW) {
+        if (Double.isFinite(value) && value >= FORGET_BELOW) {
             this.amounts.put(material, value);
         }
     }
 
     public void lastDecay(long millis) {
-        this.lastDecay = millis;
+        this.lastDecay = Math.max(0L, millis);
     }
 
     public long lastDecay() {
@@ -48,26 +48,52 @@ public final class Saturation {
      * des Zaehlers uebrig.
      */
     public void decay(long now, double halfLifeHours) {
-        if (halfLifeHours <= 0.0 || now <= this.lastDecay || this.amounts.isEmpty()) {
-            this.lastDecay = Math.max(this.lastDecay, now);
+        long elapsed = now - this.lastDecay;
+        if (elapsed <= 0L || this.amounts.isEmpty()) {
+            // Uhr steht oder laeuft rueckwaerts: nichts abbauen, aber auch nicht in die Zukunft rutschen.
+            this.lastDecay = Math.max(this.lastDecay, Math.max(0L, now));
             return;
         }
-        double hours = (now - this.lastDecay) / 3_600_000.0;
-        double factor = Math.pow(0.5, hours / halfLifeHours);
+        double factor = Math.pow(0.5, elapsed / 3_600_000.0 / halfLifeHours);
         this.lastDecay = now;
-        this.amounts.entrySet().removeIf(entry -> {
-            double left = entry.getValue() * factor;
-            entry.setValue(left);
-            return left < FORGET_BELOW;
-        });
+        if (!(factor < 1.0)) {
+            return;
+        }
+        this.amounts.replaceAll((material, value) -> value * factor);
+        forgetSmall();
+    }
+
+    /**
+     * Entfernt alles, was zu klein oder keine gueltige Zahl mehr ist. Der einzige Ort mit dieser
+     * Schwelle - Laden, Abbau und Speichern benutzen ihn gemeinsam.
+     */
+    public void forgetSmall() {
+        this.amounts.values().removeIf(value -> !Double.isFinite(value) || value < FORGET_BELOW);
     }
 
     public double amount(Material material) {
         return this.amounts.getOrDefault(material, 0.0);
     }
 
-    public void add(Material material, double value) {
-        this.amounts.merge(material, value, Double::sum);
+    /** Wortgetreue Kopie, auch mit Werten unterhalb der Schwelle. */
+    public Saturation copy() {
+        Saturation copy = new Saturation(this.lastDecay);
+        copy.amounts.putAll(this.amounts);
+        return copy;
+    }
+
+    /** Unveraenderliche Sicht fuer die Bewertung. */
+    public Map<Material, Double> snapshot() {
+        return Map.copyOf(this.amounts);
+    }
+
+    /** Der einzige Schreibweg aus einer Einzahlung: die Zuwaechse einer gebuchten Abgabe. */
+    public void commit(Map<Material, Double> deltas) {
+        deltas.forEach((material, value) -> {
+            if (Double.isFinite(value) && value > 0.0) {
+                this.amounts.merge(material, value, Double::sum);
+            }
+        });
     }
 
     public boolean isEmpty() {

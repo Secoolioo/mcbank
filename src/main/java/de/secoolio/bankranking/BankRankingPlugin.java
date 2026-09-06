@@ -78,14 +78,19 @@ public final class BankRankingPlugin extends JavaPlugin {
         }
     }
 
-    /** Liest config.yml und players.yml neu und wendet die Einstellungen auf NPCs und Sidebar an. */
-    public void reload() {
+    /**
+     * Liest config.yml und players.yml neu und wendet die Einstellungen auf NPCs und Sidebar an.
+     *
+     * @return false, wenn players.yml nicht neu geladen werden konnte
+     */
+    public boolean reload() {
         reloadConfig();
         loadSettings();
-        this.playerData.reload();
+        boolean dataOk = this.playerData.reload();
         this.npcs.applySettings();
         this.ranking.reapply();
         getLogger().info("Neu geladen: " + this.settings.summaryLine());
+        return dataOk;
     }
 
     private void loadSettings() {
@@ -110,9 +115,9 @@ public final class BankRankingPlugin extends JavaPlugin {
         return this.scorer;
     }
 
-    /** Die Marktsaettigung eines Spielers, mit eingerechnetem Zeitverfall. */
-    public Saturation saturationOf(org.bukkit.entity.Player player) {
-        return this.playerData.saturation(player.getUniqueId(), this.settings.saturationHalfLife());
+    /** Die Marktsaettigung eines Spielers als unveraenderliche Sicht, mit Zeitverfall. */
+    public java.util.Map<org.bukkit.Material, Double> saturationView(org.bukkit.entity.Player player) {
+        return this.playerData.saturationView(player.getUniqueId(), this.settings.saturationHalfLife());
     }
 
     public PlayerData playerData() {

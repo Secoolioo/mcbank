@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -46,6 +47,8 @@ public final class PlayerData {
     private final Logger log;
     private final Map<UUID, Entry> entries = new TreeMap<>();
     private final Map<UUID, Saturation> saturations = new HashMap<>();
+    /** Eintraege, die das Plugin nicht lesen konnte - sie werden unveraendert zurueckgeschrieben. */
+    private final Map<String, Map<String, Object>> unreadable = new LinkedHashMap<>();
     private boolean dirty;
     private boolean loadFailed;
 
@@ -62,6 +65,7 @@ public final class PlayerData {
     public void load() {
         this.entries.clear();
         this.saturations.clear();
+        this.unreadable.clear();
         this.dirty = false;
         this.loadFailed = false;
         if (!this.file.exists()) {
@@ -71,10 +75,16 @@ public final class PlayerData {
         try {
             yaml.load(this.file);
         } catch (IOException | InvalidConfigurationException ex) {
-            quarantine(ex);
+            quarantine(ex.getMessage());
             return;
         }
-        readInto(yaml, this.entries);
+        if (yaml.getConfigurationSection("spieler") == null) {
+            // Die Datei entsteht nur mit mindestens einem Konto. Fehlt der Abschnitt, ist sie
+            // beschaedigt (etwa ein abgebrochener Schreibvorgang) und darf nicht ueberschrieben werden.
+            quarantine("keine lesbare 'spieler'-Sektion");
+            return;
+        }
+        readInto(yaml, this.entries, this.saturations, this.unreadable);
     }
 
     /**
@@ -93,25 +103,47 @@ public final class PlayerData {
         }
         if (!this.file.exists()) {
             this.entries.clear();
+            this.saturations.clear();
+            this.unreadable.clear();
+            // Die beschaedigte Datei ist nachweislich weg, also darf wieder gespeichert werden.
+            this.loadFailed = false;
             return true;
         }
         YamlConfiguration yaml = new YamlConfiguration();
         try {
             yaml.load(this.file);
         } catch (IOException | InvalidConfigurationException ex) {
+            this.loadFailed = true;
             this.log.severe("players.yml ist beschädigt (" + ex.getMessage()
-                    + ") - die Punkte im Speicher bleiben unverändert");
+                    + ") - die Punkte im Speicher bleiben unverändert und es wird nichts gespeichert."
+                    + " Datei reparieren oder löschen, danach /bankranking reload");
             return false;
         }
-        Map<UUID, Entry> fresh = new TreeMap<>();
-        readInto(yaml, fresh);
+        if (yaml.getConfigurationSection("spieler") == null) {
+            this.loadFailed = true;
+            this.log.severe("players.yml hat keine lesbare 'spieler'-Sektion - die Punkte im Speicher bleiben"
+                    + " unverändert und es wird nichts gespeichert."
+                    + " Datei reparieren oder löschen, danach /bankranking reload");
+            return false;
+        }
+        Map<UUID, Entry> freshEntries = new TreeMap<>();
+        Map<UUID, Saturation> freshSaturations = new HashMap<>();
+        Map<String, Map<String, Object>> freshUnreadable = new LinkedHashMap<>();
+        readInto(yaml, freshEntries, freshSaturations, freshUnreadable);
+        // Alle drei Stände gemeinsam tauschen, damit Punkte und Sättigung nie auseinanderlaufen.
         this.entries.clear();
-        this.entries.putAll(fresh);
+        this.entries.putAll(freshEntries);
+        this.saturations.clear();
+        this.saturations.putAll(freshSaturations);
+        this.unreadable.clear();
+        this.unreadable.putAll(freshUnreadable);
         this.loadFailed = false;
         return true;
     }
 
-    private void readInto(YamlConfiguration yaml, Map<UUID, Entry> target) {
+    private void readInto(YamlConfiguration yaml, Map<UUID, Entry> target,
+                          Map<UUID, Saturation> saturationTarget,
+                          Map<String, Map<String, Object>> unreadableTarget) {
         ConfigurationSection section = yaml.getConfigurationSection("spieler");
         if (section == null) {
             return;
@@ -121,27 +153,39 @@ public final class PlayerData {
             try {
                 id = UUID.fromString(key);
             } catch (IllegalArgumentException ex) {
-                this.log.warning("players.yml: '" + key + "' ist keine gültige Spieler-ID - übersprungen");
+                keepUnreadable(section, key, unreadableTarget, "keine gültige Spieler-ID");
                 continue;
             }
             double points = section.getDouble(key + ".punkte", Double.NaN);
             if (!Double.isFinite(points) || points < 0.0) {
-                this.log.warning("players.yml: Eintrag '" + key + "' hat keine gültige Punktzahl - übersprungen");
+                keepUnreadable(section, key, unreadableTarget, "keine gültige Punktzahl");
                 continue;
             }
             String name = section.getString(key + ".name", "Unbekannt");
             target.put(id, new Entry(name, points));
-            readSaturation(section, key, id);
+            readSaturation(section, key, id, saturationTarget);
         }
     }
 
+    /** Merkt sich einen unlesbaren Eintrag wortgetreu, statt ihn beim Speichern zu verlieren. */
+    private void keepUnreadable(ConfigurationSection section, String key,
+                                Map<String, Map<String, Object>> target, String reason) {
+        target.put(key, YamlSections.copyOf(section.getConfigurationSection(key)));
+        this.log.warning("players.yml: Eintrag '" + key + "' hat " + reason
+                + " - er wird beim Speichern unverändert übernommen, bitte von Hand prüfen");
+    }
+
     /** Liest die Marktsaettigung eines Spielers, wenn sie in der Datei steht. */
-    private void readSaturation(ConfigurationSection section, String key, UUID id) {
+    private void readSaturation(ConfigurationSection section, String key, UUID id,
+                                Map<UUID, Saturation> target) {
         ConfigurationSection block = section.getConfigurationSection(key + ".saettigung");
         if (block == null) {
             return;
         }
-        Saturation saturation = new Saturation(block.getLong("stand", System.currentTimeMillis()));
+        long now = System.currentTimeMillis();
+        // Ein von Hand verstellter Zeitstempel darf den Zeitverfall nicht ins Absurde treiben.
+        long stand = Math.min(Math.max(0L, block.getLong("stand", now)), now);
+        Saturation saturation = new Saturation(stand);
         ConfigurationSection werte = block.getConfigurationSection("werte");
         if (werte != null) {
             for (String materialKey : werte.getKeys(false)) {
@@ -156,51 +200,82 @@ public final class PlayerData {
             }
         }
         if (!saturation.isEmpty()) {
-            this.saturations.put(id, saturation);
+            target.put(id, saturation);
         }
     }
 
     /**
-     * Die Marktsaettigung eines Spielers, mit eingerechnetem Zeitverfall.
+     * Die Marktsaettigung eines Spielers als unveraenderliche Sicht, mit eingerechnetem Zeitverfall.
+     *
+     * <p>Legt bewusst nichts an: wer nur nachschaut, hinterlaesst keinen Eintrag.
      *
      * @param halfLifeHours Halbwertszeit aus der Konfiguration
      */
-    public Saturation saturation(UUID id, double halfLifeHours) {
-        Saturation saturation = this.saturations.computeIfAbsent(id,
-                key -> new Saturation(System.currentTimeMillis()));
+    public Map<Material, Double> saturationView(UUID id, double halfLifeHours) {
+        Saturation saturation = this.saturations.get(id);
+        if (saturation == null) {
+            return Map.of();
+        }
         saturation.decay(System.currentTimeMillis(), halfLifeHours);
-        return saturation;
+        return saturation.snapshot();
     }
 
-    private void quarantine(Exception cause) {
+    private void quarantine(String reason) {
         Path source = this.file.toPath();
         Path target = source.resolveSibling(this.file.getName() + ".corrupt-" + LocalDateTime.now().format(STAMP));
         try {
             Files.move(source, target);
-            this.log.severe("players.yml ist beschädigt (" + cause.getMessage() + ") und wurde nach "
+            this.log.severe("players.yml ist beschädigt (" + reason + ") und wurde nach "
                     + target.getFileName() + " verschoben - die Punkte starten leer");
         } catch (IOException ex) {
             this.loadFailed = true;
-            this.log.severe("players.yml ist beschädigt (" + cause.getMessage() + ") und konnte NICHT zur Seite"
+            this.log.severe("players.yml ist beschädigt (" + reason + ") und konnte NICHT zur Seite"
                     + " gelegt werden (" + ex.getMessage() + ") - es wird nichts gespeichert, bitte die Datei"
                     + " von Hand prüfen");
         }
     }
 
-    /** Bucht Punkte auf ein Konto und speichert sofort. Bei Speicherfehler wird zurueckgebucht. */
-    public AddResult add(UUID id, String name, double delta) {
+    /**
+     * Bucht eine Einzahlung: Punkte und Marktsaettigung zusammen, sofort gespeichert.
+     *
+     * <p>Eine Transaktion - schlaegt das Speichern fehl, wird alles zurueckgesetzt, damit der
+     * Preis eines Rohstoffs nie faellt, ohne dass jemand dafuer Punkte bekommen hat.
+     *
+     * @param saturationDeltas Zuwaechse je Rohstoffgruppe aus {@link Scorer.Deposit}
+     */
+    public AddResult add(UUID id, String name, double delta, Map<Material, Double> saturationDeltas) {
+        if (!Double.isFinite(delta) || delta < 0.0) {
+            this.log.severe("Einzahlung von " + name + " ergab keinen gültigen Betrag (" + delta
+                    + ") - nichts gebucht");
+            return new AddResult(false, get(id));
+        }
         Entry previous = this.entries.get(id);
+        Saturation previousSaturation = this.saturations.get(id);
+        Saturation savedSaturation = previousSaturation == null ? null : previousSaturation.copy();
+        boolean wasDirty = this.dirty;
+
         double total = Scorer.round1((previous == null ? 0.0 : previous.points()) + delta);
         this.entries.put(id, new Entry(name, total));
+        if (!saturationDeltas.isEmpty()) {
+            this.saturations.computeIfAbsent(id, key -> new Saturation(System.currentTimeMillis()))
+                    .commit(saturationDeltas);
+        }
         this.dirty = true;
         if (save()) {
             return new AddResult(true, total);
         }
+
         if (previous == null) {
             this.entries.remove(id);
         } else {
             this.entries.put(id, previous);
         }
+        if (savedSaturation == null) {
+            this.saturations.remove(id);
+        } else {
+            this.saturations.put(id, savedSaturation);
+        }
+        this.dirty = wasDirty;
         return new AddResult(false, previous == null ? 0.0 : previous.points());
     }
 
@@ -279,6 +354,10 @@ public final class PlayerData {
             yaml.set(base + ".name", entry.getValue().name());
             yaml.set(base + ".punkte", entry.getValue().points());
             Saturation saturation = this.saturations.get(entry.getKey());
+            if (saturation != null) {
+                // Kleinstwerte gar nicht erst schreiben - sie wuerden beim Laden ohnehin verworfen.
+                saturation.forgetSmall();
+            }
             if (saturation != null && !saturation.isEmpty()) {
                 yaml.set(base + ".saettigung.stand", saturation.lastDecay());
                 for (Map.Entry<Material, Double> amount : saturation.amounts().entrySet()) {
@@ -287,6 +366,7 @@ public final class PlayerData {
                 }
             }
         }
+        this.unreadable.forEach((key, values) -> YamlSections.restore(yaml, "spieler." + key, values));
         Path target = this.file.toPath();
         Path temp = target.resolveSibling(this.file.getName() + ".tmp");
         try {

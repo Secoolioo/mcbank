@@ -40,8 +40,10 @@ Punkte = Grundwert × Anzahl × Kategorie-Faktor × Seltenheits-Faktor
 
 - **Grundwert**: kommt aus einer eingebauten Tabelle mit über 200 Materialien. Erde kostet 0,05,
   ein Diamant 20, ein Smaragd 25, ein Netherite-Barren 200. Blöcke zählen wie neun Rohstoffe,
-  Werkzeuge und Rüstung nach ihrer Stufe. Einzelne Werte lassen sich in der Konfiguration
-  überschreiben, alles Unbekannte bekommt den Standardwert 0,5.
+  Werkzeuge und Rüstung nach ihrer Stufe. Verarbeitete Formen zählen wie ihr Rohstoff, ein
+  Steinziegel also wie ein Stein und eine Glasscheibe wie der Sand darin. Einzelne Werte lassen
+  sich in der Konfiguration überschreiben (das gilt dann auch für alle abgeleiteten Formen),
+  alles Unbekannte bekommt den Standardwert 0,05.
 - **Kategorie-Faktor**: Waffen ×2, Werkzeuge ×1,5, Rüstung ×1,5, Ressourcen ×1, Nahrung ×0,5,
   Sonstiges ×1.
 - **Seltenheits-Faktor**: die eingebaute Minecraft-Seltenheit als Multiplikator, common ×1 bis
@@ -63,7 +65,12 @@ Platin, Diamant, Netherite.
 **Marktsättigung.** Wer denselben Rohstoff massenhaft abliefert, drückt dessen Preis, so wie ein
 Markt, den man mit Ware überschwemmt. Nach etwa 833 Eisenbarren zählt Eisen nur noch die Hälfte.
 Der Zähler halbiert sich täglich, eine Pause stellt den Preis also wieder her. Seltene Einzelfunde
-bleiben davon unberührt, weil der Zähler pro Material geführt wird.
+bleiben davon unberührt, weil der Zähler pro Rohstoff geführt wird. Barren, Blöcke und Nuggets
+desselben Metalls zählen auf denselben Zähler, Umkraften hilft also nicht.
+
+Beide Bremsen buchen die Fläche unter ihrer Kurve statt des Preises am Rand. Dadurch ist es
+gleichgültig, ob jemand alles auf einmal oder in vielen kleinen Portionen abgibt und in welcher
+Reihenfolge die Stapel im Fenster liegen.
 
 Beide Bremsen lassen sich in der Konfiguration einstellen oder abschalten.
 

@@ -50,6 +50,15 @@ public final class RankingBoard {
 
     /** Legt das Scoreboard fuer einen Spieler an und zeigt es ihm. */
     public void enable(Player player) {
+        enable(player, null);
+    }
+
+    /**
+     * Legt das Scoreboard fuer einen Spieler an.
+     *
+     * @param snapshot bereits sortierte Rangliste, falls der Aufrufer sie ohnehin schon hat
+     */
+    public void enable(Player player, List<Map.Entry<UUID, PlayerData.Entry>> snapshot) {
         if (!this.plugin.settings().sidebarEnabled()) {
             return;
         }
@@ -69,7 +78,7 @@ public final class RankingBoard {
             }
             this.boards.put(player.getUniqueId(), board);
             player.setScoreboard(board);
-            refresh(player);
+            refresh(player, snapshot == null ? this.plugin.playerData().snapshot() : snapshot);
         } catch (RuntimeException ex) {
             // Nie den Login blockieren, aber den Grund sichtbar machen - und es nicht endlos wiederholen.
             this.boards.remove(player.getUniqueId());
@@ -150,13 +159,17 @@ public final class RankingBoard {
         if (!this.plugin.settings().sidebarEnabled()) {
             return;
         }
+        List<Map.Entry<UUID, PlayerData.Entry>> snapshot = null;
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (this.failed.contains(player.getUniqueId())) {
                 continue;
             }
             Scoreboard own = this.boards.get(player.getUniqueId());
             if (own == null) {
-                enable(player);
+                if (snapshot == null) {
+                    snapshot = this.plugin.playerData().snapshot();
+                }
+                enable(player, snapshot);
                 continue;
             }
             if (player.getScoreboard() != own) {
@@ -183,10 +196,11 @@ public final class RankingBoard {
     }
 
     /** Baut die Rangliste fuer einen Spieler neu auf, egal was vorher war. */
-    public void reset(Player player) {
+    public boolean reset(Player player) {
         this.boards.remove(player.getUniqueId());
         this.failed.remove(player.getUniqueId());
-        enable(player);
+        enable(player, null);
+        return this.boards.containsKey(player.getUniqueId());
     }
 
     /** Nach einem Reload: Titel neu setzen bzw. Sidebar ein- oder ausschalten. */
@@ -196,17 +210,27 @@ public final class RankingBoard {
             shutdown();
             return;
         }
+        // Die Rangliste einmal sortieren und fuer alle Spieler wiederverwenden.
+        List<Map.Entry<UUID, PlayerData.Entry>> snapshot = this.plugin.playerData().snapshot();
         for (Player player : Bukkit.getOnlinePlayers()) {
             Scoreboard board = this.boards.get(player.getUniqueId());
             if (board == null) {
-                enable(player);
+                enable(player, snapshot);
                 continue;
             }
-            Objective objective = board.getObjective(OBJECTIVE);
-            if (objective != null) {
-                objective.displayName(Messages.mm(this.plugin.settings().sidebarTitle()));
+            try {
+                Objective objective = board.getObjective(OBJECTIVE);
+                if (objective != null) {
+                    objective.displayName(Messages.mm(this.plugin.settings().sidebarTitle()));
+                }
+                refresh(player, snapshot);
+            } catch (RuntimeException ex) {
+                // Ein einzelner Fehler darf den ganzen Reload nicht abbrechen.
+                this.boards.remove(player.getUniqueId());
+                this.failed.add(player.getUniqueId());
+                this.plugin.getLogger().severe("Rangliste für " + player.getName()
+                        + " konnte nicht neu aufgebaut werden: " + ex);
             }
-            refresh(player);
         }
     }
 

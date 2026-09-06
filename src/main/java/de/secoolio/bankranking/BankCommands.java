@@ -95,8 +95,8 @@ public final class BankCommands {
                                 .then(Commands.argument("spieler", StringArgumentType.word())
                                         .executes(ctx -> setSkin(plugin, ctx)))))
                 .then(Commands.literal("reload").executes(ctx -> {
-                    plugin.reload();
-                    plugin.send(ctx.getSource().getSender(), Messages.RELOAD_OK);
+                    boolean ok = plugin.reload();
+                    plugin.send(ctx.getSource().getSender(), ok ? Messages.RELOAD_OK : Messages.RELOAD_TEILWEISE);
                     return Command.SINGLE_SUCCESS;
                 }))
                 .then(Commands.literal("wert").executes(ctx -> value(plugin, ctx)))
@@ -195,8 +195,7 @@ public final class BankCommands {
             plugin.send(player, Messages.SIDEBAR_AUS);
             return Command.SINGLE_SUCCESS;
         }
-        plugin.ranking().reset(player);
-        plugin.send(player, Messages.SIDEBAR_NEU);
+        plugin.send(player, plugin.ranking().reset(player) ? Messages.SIDEBAR_NEU : Messages.SIDEBAR_FEHLER);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -212,25 +211,25 @@ public final class BankCommands {
         }
         // Gefuellte Behaelter zuerst auspacken, sonst wuerde nur die leere Huelle bewertet.
         Scorer.Unpacked unpacked = Scorer.unpack(java.util.List.of(stack));
+        // Ein Pfad fuer Einzel-Item und Behaelter: beide Male zaehlt, was der Spieler wirklich bekaeme.
+        double balance = plugin.playerData().get(player.getUniqueId());
+        Scorer.Deposit deposit = plugin.scorer().deposit(Scorer.factsOf(unpacked.valuables()),
+                plugin.saturationView(player), balance);
+
         if (unpacked.valuables().size() != 1 || !unpacked.emptiedContainers().isEmpty()) {
-            java.util.List<Scorer.Valuation> valuations = unpacked.valuables().stream()
-                    .map(Scorer::facts).map(plugin.scorer()::value).toList();
             plugin.send(player, Messages.WERT_KOPF,
                     Placeholder.unparsed("material", stack.getType().name()),
                     Placeholder.unparsed("anzahl", String.valueOf(stack.getAmount())));
             player.sendMessage(Messages.mm(Messages.WERT_BEHAELTER,
-                    Placeholder.unparsed("stapel", String.valueOf(valuations.size()))));
+                    Placeholder.unparsed("stapel", String.valueOf(deposit.valuations().size()))));
             player.sendMessage(Messages.mm(Messages.WERT_GESAMT,
-                    Placeholder.unparsed("punkte", Scorer.format(plugin.scorer().total(valuations)))));
+                    Placeholder.unparsed("punkte", Scorer.format(deposit.rawTotal()))));
+            player.sendMessage(Messages.mm(Messages.WERT_ENDWERT,
+                    Placeholder.unparsed("punkte", Scorer.format(deposit.total()))));
             return Command.SINGLE_SUCCESS;
         }
 
-        ItemStack single = unpacked.valuables().get(0);
-        double balance = plugin.playerData().get(player.getUniqueId());
-        double given = plugin.saturationOf(player).amount(single.getType());
-        double saturation = plugin.scorer().saturationFactor(given);
-        Scorer.Valuation valuation = plugin.scorer().value(Scorer.facts(single), saturation);
-        double wealth = plugin.scorer().wealthFactor(balance);
+        Scorer.Valuation valuation = deposit.valuations().get(0);
         plugin.send(player, Messages.WERT_KOPF,
                 Placeholder.unparsed("material", valuation.facts().material().name()),
                 Placeholder.unparsed("anzahl", String.valueOf(valuation.facts().amount())));
@@ -253,12 +252,12 @@ public final class BankCommands {
                 Placeholder.unparsed("bonus", Scorer.format(valuation.enchantBonus())),
                 Placeholder.unparsed("punkte", Scorer.format(valuation.rawPoints()))));
         player.sendMessage(Messages.mm(Messages.WERT_SAETTIGUNG,
-                Placeholder.unparsed("faktor", String.valueOf(Math.round(saturation * 100.0)))));
+                Placeholder.unparsed("faktor", String.valueOf(Math.round(valuation.saturationFactor() * 100.0)))));
         player.sendMessage(Messages.mm(Messages.WERT_WOHLSTAND
                         .replace("<rang>", Rank.of(balance).colored()),
-                Placeholder.unparsed("faktor", String.valueOf(Math.round(wealth * 100.0)))));
+                Placeholder.unparsed("faktor", String.valueOf(Math.round(deposit.wealthFactor() * 100.0)))));
         player.sendMessage(Messages.mm(Messages.WERT_ENDWERT,
-                Placeholder.unparsed("punkte", Scorer.format(valuation.rawPoints() * saturation * wealth))));
+                Placeholder.unparsed("punkte", Scorer.format(deposit.total()))));
         return Command.SINGLE_SUCCESS;
     }
 

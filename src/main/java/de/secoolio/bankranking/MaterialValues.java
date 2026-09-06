@@ -3,6 +3,7 @@ package de.secoolio.bankranking;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.bukkit.Material;
 
@@ -19,10 +20,11 @@ import org.bukkit.Material;
  */
 public final class MaterialValues {
 
-    /** Wert fuer alles, was in keiner Regel vorkommt. */
-    public static final double FALLBACK = 0.5;
+    /** Wert fuer alles, was in keiner Regel vorkommt: die Ramsch-Stufe. */
+    public static final double FALLBACK = 0.05;
 
-    private record Derived(Material source, int factor) {
+    /** Ein Material, das sich verlustfrei aus einem anderen herstellen laesst. */
+    private record Derived(Material source, double factor) {
     }
 
     private static final Map<Material, Double> VALUES = new EnumMap<>(Material.class);
@@ -154,12 +156,10 @@ public final class MaterialValues {
         put(1.0,
                     "ACACIA_LOG",
                     "BIRCH_LOG",
-                    "BRICK",
                     "CHERRY_LOG",
                     "COAL",
                     "CRIMSON_STEM",
                     "DARK_OAK_LOG",
-                    "GLASS",
                     "GLOWSTONE_DUST",
                     "GLOW_INK_SAC",
                     "GUNPOWDER",
@@ -167,7 +167,6 @@ public final class MaterialValues {
                     "INK_SAC",
                     "JUNGLE_LOG",
                     "MANGROVE_LOG",
-                    "NETHER_BRICK",
                     "OAK_LOG",
                     "OBSIDIAN",
                     "PALE_OAK_LOG",
@@ -297,7 +296,41 @@ public final class MaterialValues {
         BLOCKS.put(Material.REDSTONE_BLOCK, new Derived(Material.REDSTONE, 9));
         BLOCKS.put(Material.SLIME_BLOCK, new Derived(Material.SLIME_BALL, 9));
 
-        putNuggets();
+        // Nuggets sind ein Neuntel ihres Barrens - sonst waere Zerlegen ein Gewinn.
+        BLOCKS.put(Material.IRON_NUGGET, new Derived(Material.IRON_INGOT, 1.0 / 9.0));
+        BLOCKS.put(Material.GOLD_NUGGET, new Derived(Material.GOLD_INGOT, 1.0 / 9.0));
+        BLOCKS.put(Material.COPPER_NUGGET, new Derived(Material.COPPER_INGOT, 1.0 / 9.0));
+
+        // Verlustfreie Ofen- und Werkbank-Rezepte: das Erzeugnis darf nie mehr wert sein als
+        // sein Rohstoff, sonst laesst sich mit einer Farm und einem Ofen Punkte drucken.
+        BLOCKS.put(Material.BRICK, new Derived(Material.CLAY_BALL, 1));
+        BLOCKS.put(Material.BRICKS, new Derived(Material.BRICK, 4));
+        BLOCKS.put(Material.GLASS, new Derived(Material.SAND, 1));
+        BLOCKS.put(Material.GLASS_PANE, new Derived(Material.GLASS, 3.0 / 8.0));
+        BLOCKS.put(Material.NETHER_BRICK, new Derived(Material.NETHERRACK, 1));
+        BLOCKS.put(Material.NETHER_BRICKS, new Derived(Material.NETHER_BRICK, 4));
+        BLOCKS.put(Material.SMOOTH_STONE, new Derived(Material.STONE, 1));
+        BLOCKS.put(Material.STONE_BRICKS, new Derived(Material.STONE, 1));
+        BLOCKS.put(Material.MOSSY_STONE_BRICKS, new Derived(Material.STONE, 1));
+        BLOCKS.put(Material.CRACKED_STONE_BRICKS, new Derived(Material.STONE, 1));
+        BLOCKS.put(Material.CHISELED_STONE_BRICKS, new Derived(Material.STONE, 1));
+        BLOCKS.put(Material.STONE_SLAB, new Derived(Material.STONE, 0.5));
+        BLOCKS.put(Material.STONE_BRICK_SLAB, new Derived(Material.STONE, 0.5));
+        BLOCKS.put(Material.COBBLESTONE_SLAB, new Derived(Material.COBBLESTONE, 0.5));
+        BLOCKS.put(Material.STONE_STAIRS, new Derived(Material.STONE, 1));
+        BLOCKS.put(Material.STONE_BRICK_STAIRS, new Derived(Material.STONE, 1));
+        BLOCKS.put(Material.COBBLESTONE_STAIRS, new Derived(Material.COBBLESTONE, 1));
+        BLOCKS.put(Material.STONE_BRICK_WALL, new Derived(Material.STONE, 1));
+        BLOCKS.put(Material.COBBLESTONE_WALL, new Derived(Material.COBBLESTONE, 1));
+        BLOCKS.put(Material.POLISHED_ANDESITE, new Derived(Material.ANDESITE, 1));
+        BLOCKS.put(Material.POLISHED_DIORITE, new Derived(Material.DIORITE, 1));
+        BLOCKS.put(Material.POLISHED_GRANITE, new Derived(Material.GRANITE, 1));
+        BLOCKS.put(Material.POLISHED_DEEPSLATE, new Derived(Material.COBBLED_DEEPSLATE, 1));
+        BLOCKS.put(Material.DEEPSLATE_BRICKS, new Derived(Material.COBBLED_DEEPSLATE, 1));
+        BLOCKS.put(Material.DEEPSLATE_TILES, new Derived(Material.COBBLED_DEEPSLATE, 1));
+        BLOCKS.put(Material.SANDSTONE, new Derived(Material.SAND, 4));
+        BLOCKS.put(Material.SMOOTH_SANDSTONE, new Derived(Material.SANDSTONE, 1));
+        BLOCKS.put(Material.CUT_SANDSTONE, new Derived(Material.SANDSTONE, 1));
 
         // Fertige Ausruestung nach Stufe. Nachgeschlagen wird mit dem exakten Praefix, das beim
         // Abschneiden der Endung uebrig bleibt - die Reihenfolge in der Map spielt keine Rolle.
@@ -311,12 +344,6 @@ public final class MaterialValues {
         TIERS.put("TURTLE", 40.0);
         TIERS.put("STONE", 1.5);
         TIERS.put("IRON", 20.0);
-    }
-
-    private static void putNuggets() {
-        // Ein Neuntel des Barrens: sonst waere es lohnend, Barren in Nuggets zu zerlegen.
-        put(6.0 / 9.0, "IRON_NUGGET");
-        put(8.0 / 9.0, "GOLD_NUGGET");
     }
 
     private static void put(double value, String... names) {
@@ -334,13 +361,29 @@ public final class MaterialValues {
      * @param fallback Wert fuer Materialien, die in keiner Regel vorkommen
      */
     public static double baseValue(Material material, double fallback) {
+        return baseValue(material, fallback, Map.of());
+    }
+
+    /**
+     * Grundwert eines Materials mit den Basiswerten aus der Konfiguration.
+     *
+     * <p>Reihenfolge: eigener Eintrag des Admins, eingebaute Tabelle, Ableitung aus dem Rohstoff
+     * (dabei gilt ein Admin-Wert auch fuer alle abgeleiteten Formen), Ausruestungsstufe, Rueckfall.
+     *
+     * @param overrides Basiswerte aus punkte.material-basiswerte
+     */
+    public static double baseValue(Material material, double fallback, Map<Material, Double> overrides) {
+        Double override = overrides.get(material);
+        if (override != null) {
+            return override;
+        }
         Double direct = VALUES.get(material);
         if (direct != null) {
             return direct;
         }
         Derived derived = BLOCKS.get(material);
         if (derived != null) {
-            return baseValue(derived.source(), fallback) * derived.factor();
+            return baseValue(derived.source(), fallback, overrides) * derived.factor();
         }
         String name = material.name();
         for (String suffix : GEAR_SUFFIXES) {
@@ -353,6 +396,31 @@ public final class MaterialValues {
             }
         }
         return fallback;
+    }
+
+    /**
+     * Der Rohstoff, auf dessen Marktsaettigung dieses Material zaehlt.
+     *
+     * <p>Ein Eisenblock, ein Eisenbarren und ein Eisennugget belasten denselben Zaehler, sonst
+     * liesse sich der gedrueckte Preis durch Umkraften umgehen.
+     */
+    public static Material saturationKey(Material material) {
+        Material current = material;
+        // Die Ableitungskette ist endlich und zyklenfrei; die Schranke schuetzt vor Tippfehlern.
+        for (int step = 0; step < 8; step++) {
+            Derived derived = BLOCKS.get(current);
+            if (derived == null) {
+                return current;
+            }
+            current = derived.source();
+        }
+        return current;
+    }
+
+    /** Der direkte Rohstoff einer abgeleiteten Form, falls es einen gibt. */
+    public static Optional<Material> blockSource(Material material) {
+        Derived derived = BLOCKS.get(material);
+        return derived == null ? Optional.empty() : Optional.of(derived.source());
     }
 
 

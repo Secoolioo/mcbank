@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Logger;
 
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemRarity;
@@ -24,8 +25,10 @@ public final class Settings {
     public static final double DEFAULT_UNCOMMON = 1.5;
     public static final double DEFAULT_RARE = 2.0;
     public static final double DEFAULT_EPIC = 3.0;
-    /** Grundwert fuer Materialien ohne eigenen Eintrag. */
-    public static final double DEFAULT_FALLBACK_VALUE = 0.5;
+    /** Grundwert fuer Materialien ohne eigenen Eintrag: die Ramsch-Stufe. */
+    public static final double DEFAULT_FALLBACK_VALUE = MaterialValues.FALLBACK;
+    /** Obergrenze fuer eigene Basiswerte, damit keine Rechnung ins Unendliche laeuft. */
+    public static final double MAX_BASE_VALUE = 1_000_000.0;
     /** Ab diesem Kontostand zaehlen Items nur noch die Haelfte (bei Staerke 1.0). */
     public static final double DEFAULT_WEALTH_THRESHOLD = 5000.0;
     /** Wie steil die Wohlstands-Bremse greift. */
@@ -42,6 +45,12 @@ public final class Settings {
     public static final String DEFAULT_NPC_NAME = "<gold><bold>Bank</bold></gold>";
     public static final String DEFAULT_NPC_DESCRIPTION = "<gray>Rechtsklick: Items abgeben";
     public static final String DEFAULT_SIDEBAR_TITLE = "<gold><bold>Rangliste</bold></gold>";
+
+    /** Die Zahlenwerte beider Bremsen, gebuendelt statt als Index-Array. */
+    private record Damping(boolean wealthEnabled, double wealthThreshold, double wealthStrength,
+                           double wealthFloor, boolean saturationEnabled, double saturationThreshold,
+                           double saturationHalfLife, double saturationFloor) {
+    }
 
     private final Map<ItemRarity, Double> rarityBase;
     private final Map<Category, Double> categoryMultiplier;
@@ -67,7 +76,7 @@ public final class Settings {
                      Map<Category, Double> categoryMultiplier,
                      double enchantBonusPerLevel,
                      double fallbackValue,
-                     double[] damping,
+                     Damping damping,
                      Map<Material, Double> materialBase,
                      Map<Material, Category> categoryOverrides,
                      String npcName,
@@ -79,14 +88,14 @@ public final class Settings {
         this.categoryMultiplier = categoryMultiplier;
         this.enchantBonusPerLevel = enchantBonusPerLevel;
         this.fallbackValue = fallbackValue;
-        this.wealthEnabled = damping[0] != 0.0;
-        this.wealthThreshold = damping[1];
-        this.wealthStrength = damping[2];
-        this.wealthFloor = damping[3];
-        this.saturationEnabled = damping[4] != 0.0;
-        this.saturationThreshold = damping[5];
-        this.saturationHalfLife = damping[6];
-        this.saturationFloor = damping[7];
+        this.wealthEnabled = damping.wealthEnabled();
+        this.wealthThreshold = damping.wealthThreshold();
+        this.wealthStrength = damping.wealthStrength();
+        this.wealthFloor = damping.wealthFloor();
+        this.saturationEnabled = damping.saturationEnabled();
+        this.saturationThreshold = damping.saturationThreshold();
+        this.saturationHalfLife = damping.saturationHalfLife();
+        this.saturationFloor = damping.saturationFloor();
         this.materialBase = Map.copyOf(materialBase);
         this.categoryOverrides = Map.copyOf(categoryOverrides);
         this.npcName = npcName;
@@ -117,16 +126,16 @@ public final class Settings {
         double bonus = readPositive(c, "punkte.verzauberung-bonus-pro-stufe", DEFAULT_ENCHANT_BONUS, log);
         double fallback = readPositive(c, "punkte.standardwert", DEFAULT_FALLBACK_VALUE, log);
 
-        double[] damping = {
-                readFlag(c, "punkte.wohlstands-bremse.aktiv"),
-                readPositive(c, "punkte.wohlstands-bremse.schwelle", DEFAULT_WEALTH_THRESHOLD, log),
+        Damping damping = new Damping(
+                readFlag(c, "punkte.wohlstands-bremse.aktiv", true, log),
+                readStrictlyPositive(c, "punkte.wohlstands-bremse.schwelle", DEFAULT_WEALTH_THRESHOLD, log),
                 readPositive(c, "punkte.wohlstands-bremse.staerke", DEFAULT_WEALTH_STRENGTH, log),
-                readPositive(c, "punkte.wohlstands-bremse.mindestfaktor", DEFAULT_WEALTH_FLOOR, log),
-                readFlag(c, "punkte.markt-saettigung.aktiv"),
-                readPositive(c, "punkte.markt-saettigung.schwelle", DEFAULT_SATURATION_THRESHOLD, log),
-                readPositive(c, "punkte.markt-saettigung.erholung-stunden", DEFAULT_SATURATION_HALF_LIFE, log),
-                readPositive(c, "punkte.markt-saettigung.mindestfaktor", DEFAULT_SATURATION_FLOOR, log),
-        };
+                readFactor(c, "punkte.wohlstands-bremse.mindestfaktor", DEFAULT_WEALTH_FLOOR, log),
+                readFlag(c, "punkte.markt-saettigung.aktiv", true, log),
+                readStrictlyPositive(c, "punkte.markt-saettigung.schwelle", DEFAULT_SATURATION_THRESHOLD, log),
+                readStrictlyPositive(c, "punkte.markt-saettigung.erholung-stunden",
+                        DEFAULT_SATURATION_HALF_LIFE, log),
+                readFactor(c, "punkte.markt-saettigung.mindestfaktor", DEFAULT_SATURATION_FLOOR, log));
 
         Map<Material, Double> materialBase = new HashMap<>();
         ConfigurationSection baseSection = c.getConfigurationSection("punkte.material-basiswerte");
@@ -137,9 +146,10 @@ public final class Settings {
                     continue;
                 }
                 Object raw = baseSection.get(key);
-                if (!(raw instanceof Number number) || !isUsable(number.doubleValue())) {
+                if (!(raw instanceof Number number) || !isUsable(number.doubleValue())
+                        || number.doubleValue() > MAX_BASE_VALUE) {
                     log.warning("config.yml: Wert für '" + key + "' unter punkte.material-basiswerte ist ungültig"
-                            + " (Zahl >= 0 erwartet) - Eintrag ignoriert");
+                            + " (Zahl zwischen 0 und " + MAX_BASE_VALUE + " erwartet) - Eintrag ignoriert");
                     continue;
                 }
                 materialBase.put(material, number.doubleValue());
@@ -164,11 +174,11 @@ public final class Settings {
             }
         }
 
-        String npcName = readText(c, "npc.name", DEFAULT_NPC_NAME);
-        String npcDescription = readText(c, "npc.beschreibung", DEFAULT_NPC_DESCRIPTION);
-        boolean confirmHead = !c.isSet("gui.haken-kopf") || c.getBoolean("gui.haken-kopf", true);
-        boolean sidebarEnabled = !c.isSet("sidebar.aktiv") || c.getBoolean("sidebar.aktiv", true);
-        String sidebarTitle = readText(c, "sidebar.titel", DEFAULT_SIDEBAR_TITLE);
+        String npcName = readMiniMessage(c, "npc.name", DEFAULT_NPC_NAME, log);
+        String npcDescription = readMiniMessage(c, "npc.beschreibung", DEFAULT_NPC_DESCRIPTION, log);
+        boolean confirmHead = readFlag(c, "gui.haken-kopf", true, log);
+        boolean sidebarEnabled = readFlag(c, "sidebar.aktiv", true, log);
+        String sidebarTitle = readMiniMessage(c, "sidebar.titel", DEFAULT_SIDEBAR_TITLE, log);
 
         return new Settings(rarity, multipliers, bonus, fallback, damping, materialBase, overrides,
                 npcName, npcDescription, confirmHead, sidebarEnabled, sidebarTitle);
@@ -204,22 +214,66 @@ public final class Settings {
         return value;
     }
 
-    /** Liest einen Schalter; fehlt er, gilt er als eingeschaltet. */
-    private static double readFlag(ConfigurationSection c, String path) {
-        Object raw = c.get(path, null);
-        if (raw instanceof Boolean flag) {
-            return flag ? 1.0 : 0.0;
+    /** Wie readPositive, aber der Wert muss echt groesser als null sein (Schwellen, Halbwertszeit). */
+    private static double readStrictlyPositive(ConfigurationSection c, String path, double fallback, Logger log) {
+        double value = readPositive(c, path, fallback, log);
+        if (value <= 0.0) {
+            log.warning("config.yml: '" + path + "' = " + value + " ist ungültig (muss größer als 0 sein)"
+                    + " - Standardwert " + fallback + " wird verwendet");
+            return fallback;
         }
-        return 1.0;
+        return value;
+    }
+
+    /** Ein Faktor zwischen 0 und 1; groessere Werte wuerden aus einer Bremse einen Verstaerker machen. */
+    private static double readFactor(ConfigurationSection c, String path, double fallback, Logger log) {
+        double value = readPositive(c, path, fallback, log);
+        if (value > 1.0) {
+            log.warning("config.yml: '" + path + "' = " + value + " ist ungültig (muss zwischen 0 und 1 liegen)"
+                    + " - Standardwert " + fallback + " wird verwendet");
+            return fallback;
+        }
+        return value;
+    }
+
+    /** Liest einen Schalter; fehlt er, gilt der Standard. Ein Wert in Anfuehrungszeichen wird gemeldet. */
+    private static boolean readFlag(ConfigurationSection c, String path, boolean fallback, Logger log) {
+        Object raw = c.get(path, null);
+        if (raw == null) {
+            return fallback;
+        }
+        if (raw instanceof Boolean flag) {
+            return flag;
+        }
+        log.warning("config.yml: '" + path + "' ist kein Wahrheitswert (true oder false ohne Anführungszeichen)"
+                + " - Schalter bleibt " + (fallback ? "an" : "aus"));
+        return fallback;
     }
 
     private static boolean isUsable(double value) {
         return Double.isFinite(value) && value >= 0.0;
     }
 
-    private static String readText(ConfigurationSection c, String path, String fallback) {
+    /**
+     * Liest einen Text und prueft ihn einmal als MiniMessage.
+     *
+     * <p>Unbekannte Angaben zeigt MiniMessage einfach als Text an, statt zu scheitern - dieser
+     * Versuch ist also nur ein Sicherheitsnetz fuer den Fall, dass eine kuenftige Fassung strenger
+     * wird. Er stellt sicher, dass ein Konfigurationsfehler niemals einen Ablauf abbricht.
+     */
+    private static String readMiniMessage(ConfigurationSection c, String path, String fallback, Logger log) {
         String value = c.getString(path);
-        return value == null ? fallback : value;
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            MiniMessage.miniMessage().deserialize(value);
+            return value;
+        } catch (RuntimeException ex) {
+            log.warning("config.yml: '" + path + "' ist kein gültiges MiniMessage-Format (" + ex.getMessage()
+                    + ") - Standardtext wird verwendet");
+            return fallback;
+        }
     }
 
     private static Material parseMaterial(String key, String path, Logger log) {

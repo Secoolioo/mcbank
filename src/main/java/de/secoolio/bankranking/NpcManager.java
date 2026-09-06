@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -73,6 +74,8 @@ public final class NpcManager {
     private final Logger log;
     private final File file;
     private final Map<Integer, NpcEntry> npcs = new TreeMap<>();
+    /** NPC-Bloecke, die das Plugin nicht lesen konnte - sie werden unveraendert zurueckgeschrieben. */
+    private final Map<String, Map<String, Object>> unreadable = new LinkedHashMap<>();
     private final Map<Integer, int[]> respawns = new HashMap<>();
     private final Map<Integer, Long> respawnWindowStart = new HashMap<>();
     private int nextId = 1;
@@ -119,6 +122,7 @@ public final class NpcManager {
 
     public void load() {
         this.npcs.clear();
+        this.unreadable.clear();
         this.nextId = 1;
         this.loadFailed = false;
         if (!this.file.exists()) {
@@ -142,26 +146,26 @@ public final class NpcManager {
                 try {
                     id = Integer.parseInt(key);
                 } catch (NumberFormatException ex) {
-                    this.log.warning("npcs.yml: '" + key + "' ist keine gültige NPC-Nummer - übersprungen");
+                    keepUnreadable(section, key, "keine gültige NPC-Nummer");
                     continue;
                 }
                 ConfigurationSection npc = section.getConfigurationSection(key);
                 if (npc == null) {
+                    keepUnreadable(section, key, "keinen lesbaren Inhalt");
                     continue;
                 }
                 String world = npc.getString("world");
                 String skin = npc.getString("skin");
                 if (world == null || skin == null) {
-                    this.log.warning("npcs.yml: NPC #" + id + " ist unvollständig - übersprungen");
+                    keepUnreadable(section, key, "keine vollständigen Angaben");
                     continue;
                 }
                 if (!isValidSkinName(skin)) {
-                    this.log.warning("npcs.yml: NPC #" + id + " hat einen ungültigen Skin-Namen '" + skin
-                            + "' - übersprungen");
+                    keepUnreadable(section, key, "einen ungültigen Skin-Namen '" + skin + "'");
                     continue;
                 }
                 if (!hasNumber(npc, "x") || !hasNumber(npc, "y") || !hasNumber(npc, "z")) {
-                    this.log.warning("npcs.yml: NPC #" + id + " hat keine gültigen Koordinaten - übersprungen");
+                    keepUnreadable(section, key, "keine gültigen Koordinaten");
                     continue;
                 }
                 UUID entityId = null;
@@ -186,6 +190,22 @@ public final class NpcManager {
         return section.get(key) instanceof Number;
     }
 
+    /**
+     * Merkt sich einen unlesbaren NPC-Block wortgetreu. Ohne das wuerde ein Tippfehler in npcs.yml
+     * beim naechsten Speichern den Eintrag loeschen und die Figur als herrenlose Statue zuruecklassen.
+     */
+    private void keepUnreadable(ConfigurationSection section, String key, String reason) {
+        this.unreadable.put(key, YamlSections.copyOf(section.getConfigurationSection(key)));
+        this.log.warning("npcs.yml: Eintrag '" + key + "' hat " + reason
+                + " - er wird beim Speichern unverändert übernommen, bitte von Hand prüfen");
+        try {
+            // Die Nummer bleibt belegt, damit ein neuer NPC sie nicht doppelt vergibt.
+            this.nextId = Math.max(this.nextId, Integer.parseInt(key) + 1);
+        } catch (NumberFormatException ignored) {
+            // Kein Zahlenschluessel: dann kann er auch nicht kollidieren.
+        }
+    }
+
     public void save() {
         if (this.loadFailed) {
             this.log.severe("npcs.yml wird nicht gespeichert, weil die beschädigte Datei noch vorhanden ist");
@@ -193,6 +213,7 @@ public final class NpcManager {
         }
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("naechste-id", this.nextId);
+        this.unreadable.forEach((key, values) -> YamlSections.restore(yaml, "npcs." + key, values));
         for (NpcEntry entry : this.npcs.values()) {
             String base = "npcs." + entry.id() + ".";
             yaml.set(base + "world", entry.world());
@@ -493,10 +514,14 @@ public final class NpcManager {
                 && rawTagMatches(mannequin, entry.id())) {
             return mannequin;
         }
-        Chunk chunk = world.getChunkAt(entry.blockX() >> 4, entry.blockZ() >> 4);
-        if (!chunk.isLoaded()) {
+        int chunkX = entry.blockX() >> 4;
+        int chunkZ = entry.blockZ() >> 4;
+        // Erst fragen, dann holen: getChunkAt wuerde den Chunk laden und notfalls erzeugen, und
+        // das mitten in einem Anzeige-Befehl auf dem Hauptthread.
+        if (!world.isChunkLoaded(chunkX, chunkZ)) {
             return null;
         }
+        Chunk chunk = world.getChunkAt(chunkX, chunkZ);
         for (Entity entity : chunk.getEntities()) {
             Integer tag = rawTag(entity);
             if (tag != null && tag == entry.id() && entity instanceof Mannequin mannequin) {

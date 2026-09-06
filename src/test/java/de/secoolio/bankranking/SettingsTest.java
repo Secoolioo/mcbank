@@ -21,7 +21,8 @@ class SettingsTest {
         assertEquals(1.5, settings.rarityBase(ItemRarity.UNCOMMON), 1e-9);
         assertEquals(2.0, settings.rarityBase(ItemRarity.RARE), 1e-9);
         assertEquals(3.0, settings.rarityBase(ItemRarity.EPIC), 1e-9);
-        assertEquals(0.5, settings.fallbackValue(), 1e-9);
+        assertEquals(Settings.DEFAULT_FALLBACK_VALUE, settings.fallbackValue(), 1e-9);
+        assertEquals(0.05, settings.fallbackValue(), 1e-9);
         assertTrue(settings.confirmHead());
         assertEquals(2.0, settings.multiplier(Category.WAFFEN), 1e-9);
         assertEquals(1.5, settings.multiplier(Category.WERKZEUGE), 1e-9);
@@ -51,7 +52,7 @@ class SettingsTest {
         Settings settings = Settings.load(TestSupport.config(""), log);
         assertEquals(1.0, settings.rarityBase(ItemRarity.COMMON), 1e-9);
         assertEquals(2.0, settings.enchantBonusPerLevel(), 1e-9);
-        assertEquals(0.5, settings.fallbackValue(), 1e-9);
+        assertEquals(Settings.DEFAULT_FALLBACK_VALUE, settings.fallbackValue(), 1e-9);
         assertEquals(Settings.DEFAULT_NPC_NAME, settings.npcName());
         // vier Seltenheits-Faktoren, sechs Kategorien, Verzauberungs-Bonus, Standardwert
         // sowie je drei Zahlenwerte der beiden Bremsen
@@ -122,6 +123,80 @@ class SettingsTest {
         assertEquals(1, log.warningsContaining("legacy_stone"));
         assertEquals(1, log.warningsContaining("emerald"));
         assertEquals(1, log.warningsContaining("dessert"));
+    }
+
+    @Test
+    @DisplayName("Ein Mindestfaktor über 1 würde die Bremse umdrehen und wird abgelehnt")
+    void factorAboveOneIsRejected() {
+        TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
+        Settings settings = Settings.load(TestSupport.config("""
+                punkte:
+                  wohlstands-bremse:
+                    mindestfaktor: 5.0
+                  markt-saettigung:
+                    mindestfaktor: 2.0
+                """), log);
+        assertEquals(Settings.DEFAULT_WEALTH_FLOOR, settings.wealthFloor(), 1e-9);
+        assertEquals(Settings.DEFAULT_SATURATION_FLOOR, settings.saturationFloor(), 1e-9);
+        assertEquals(2, log.warningsContaining("zwischen 0 und 1"));
+    }
+
+    @Test
+    @DisplayName("Schwelle und Halbwertszeit dürfen nicht null sein")
+    void zeroThresholdsAreRejected() {
+        TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
+        Settings settings = Settings.load(TestSupport.config("""
+                punkte:
+                  wohlstands-bremse:
+                    schwelle: 0
+                  markt-saettigung:
+                    schwelle: 0
+                    erholung-stunden: 0
+                """), log);
+        assertEquals(Settings.DEFAULT_WEALTH_THRESHOLD, settings.wealthThreshold(), 1e-9);
+        assertEquals(Settings.DEFAULT_SATURATION_THRESHOLD, settings.saturationThreshold(), 1e-9);
+        assertEquals(Settings.DEFAULT_SATURATION_HALF_LIFE, settings.saturationHalfLife(), 1e-9);
+        assertEquals(3, log.warningsContaining("größer als 0"));
+    }
+
+    @Test
+    @DisplayName("Ein Schalter in Anführungszeichen wird gemeldet statt still übergangen")
+    void quotedSwitchIsReported() {
+        TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
+        Settings settings = Settings.load(TestSupport.config("""
+                sidebar:
+                  aktiv: "false"
+                """), log);
+        assertTrue(settings.sidebarEnabled(), "der Schalter bleibt auf dem Standard");
+        assertEquals(1, log.warningsContaining("kein Wahrheitswert"));
+    }
+
+    @Test
+    @DisplayName("Ein unbekannter Tag im Titel wird als Text übernommen und bricht nichts ab")
+    void unknownTagIsHarmless() {
+        TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
+        String titel = "<gradient:nichts>Rangliste</gradient>";
+        Settings settings = Settings.load(TestSupport.config("""
+                sidebar:
+                  titel: "<gradient:nichts>Rangliste</gradient>"
+                """), log);
+        // MiniMessage wirft bei unbekannten Tags nicht, sondern zeigt sie als Text.
+        // Die Prüfung beim Laden ist deshalb nur ein Sicherheitsnetz und meldet hier nichts.
+        assertEquals(titel, settings.sidebarTitle());
+        assertEquals(0, log.warningsContaining("MiniMessage"));
+    }
+
+    @Test
+    @DisplayName("Ein absurd großer Basiswert wird nicht übernommen")
+    void hugeBaseValueIsRejected() {
+        TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
+        Settings settings = Settings.load(TestSupport.config("""
+                punkte:
+                  material-basiswerte:
+                    dirt: 1.0E308
+                """), log);
+        assertTrue(settings.materialBase().isEmpty());
+        assertEquals(1, log.warningsContaining("material-basiswerte"));
     }
 
     @Test

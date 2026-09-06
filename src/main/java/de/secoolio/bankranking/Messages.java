@@ -62,6 +62,8 @@ public final class Messages {
             "<gold><bold>Aufstieg!</bold></gold> <gray>Du bist jetzt <rang><gray>.";
     public static final String BANK_BEHAELTER_ZURUECK = "<gray>Leere Behälter hast du zurückbekommen.";
     public static final String BANK_ZURUECK = "<gray>Nichts abgegeben - du hast deine Items zurückbekommen.";
+    public static final String BANK_TOD_BODEN =
+            "<yellow>Du bist gestorben - deine Bank-Items liegen an deinem Todesort auf dem Boden.";
     public static final String BANK_ZURUECK_BODEN =
             "<yellow>Dein Inventar war voll - einige Items liegen vor dir auf dem Boden.";
 
@@ -123,6 +125,10 @@ public final class Messages {
     public static final String SIDEBAR_AUS =
             "<yellow>Die Rangliste ist in der config.yml abgeschaltet (sidebar.aktiv: false).";
 
+    public static final String SIDEBAR_FEHLER =
+            "<red>Die Rangliste konnte nicht aufgebaut werden - der Grund steht in der Server-Konsole.";
+    public static final String RELOAD_TEILWEISE =
+            "<yellow>config.yml neu geladen, players.yml NICHT - Einzelheiten stehen im Server-Log.";
     public static final String RELOAD_OK =
             "<green>Konfiguration neu geladen. Eventuelle Warnungen stehen im Server-Log.";
 

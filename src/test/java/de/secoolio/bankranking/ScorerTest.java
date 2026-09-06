@@ -3,7 +3,11 @@ package de.secoolio.bankranking;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemRarity;
@@ -155,20 +159,6 @@ class ScorerTest {
     }
 
     @Test
-    @DisplayName("Der Sättigungszähler baut sich mit der Zeit wieder ab")
-    void saturationDecays() {
-        long start = 1_700_000_000_000L;
-        Saturation saturation = new Saturation(start);
-        saturation.add(Material.IRON_INGOT, 4000.0);
-        // nach einer Halbwertszeit die Hälfte
-        saturation.decay(start + 24 * 3_600_000L, 24.0);
-        assertEquals(2000.0, saturation.amount(Material.IRON_INGOT), 0.5);
-        // nach einer weiteren nochmals die Hälfte
-        saturation.decay(start + 48 * 3_600_000L, 24.0);
-        assertEquals(1000.0, saturation.amount(Material.IRON_INGOT), 0.5);
-    }
-
-    @Test
     @DisplayName("Ränge richten sich nach dem Kontostand")
     void ranks() {
         assertEquals(Rank.BRONZE, Rank.of(0));
@@ -180,6 +170,114 @@ class ScorerTest {
         assertEquals(Rank.NETHERITE, Rank.of(1_000_000));
         assertEquals(1_000, Rank.BRONZE.nextAt());
         assertEquals(0, Rank.NETHERITE.nextAt());
+    }
+
+    private Scorer.ItemFacts facts(Material material, int amount) {
+        return new Scorer.ItemFacts(material, amount, ItemRarity.COMMON, 0);
+    }
+
+    @Test
+    @DisplayName("Die Reihenfolge der Stapel im Fenster ändert das Ergebnis nicht")
+    void depositIsOrderIndependent() {
+        List<Scorer.ItemFacts> stacks = List.of(
+                facts(Material.IRON_INGOT, 64), facts(Material.IRON_BLOCK, 32),
+                facts(Material.IRON_NUGGET, 64), facts(Material.DIAMOND, 12),
+                facts(Material.IRON_INGOT, 7));
+        double expected = this.scorer.deposit(stacks, Map.of(), 0.0).total();
+        List<Scorer.ItemFacts> reversed = new ArrayList<>(stacks);
+        Collections.reverse(reversed);
+        assertEquals(expected, this.scorer.deposit(reversed, Map.of(), 0.0).total(), 1e-6);
+        List<Scorer.ItemFacts> shuffled = List.of(stacks.get(3), stacks.get(0), stacks.get(4),
+                stacks.get(2), stacks.get(1));
+        assertEquals(expected, this.scorer.deposit(shuffled, Map.of(), 0.0).total(), 1e-6);
+    }
+
+    @Test
+    @DisplayName("Viele kleine Einzahlungen bringen so viel wie eine große")
+    void hoardingBringsNoAdvantage() {
+        // 100 Portionen zu je 1000 Rohpunkten, jeweils mit dem gewachsenen Kontostand gerechnet
+        double balance = 0.0;
+        for (int i = 0; i < 100; i++) {
+            balance += this.scorer.wealthCredit(balance, 1000.0);
+        }
+        double atOnce = this.scorer.wealthCredit(0.0, 100_000.0);
+        assertEquals(atOnce, balance, atOnce * 1e-6);
+    }
+
+    @Test
+    @DisplayName("Die Sättigungs-Gutschrift ist additiv")
+    void saturationCreditIsAdditive() {
+        for (double given : new double[] {0.0, 2000.0, 60_000.0}) {
+            double whole = this.scorer.saturationCredit(given, 8000.0);
+            double split = this.scorer.saturationCredit(given, 3000.0)
+                    + this.scorer.saturationCredit(given + 3000.0, 5000.0);
+            assertEquals(whole, split, 1e-6, "given=" + given);
+        }
+    }
+
+    @Test
+    @DisplayName("Umkraften in Blöcke oder Nuggets umgeht die Marktsättigung nicht")
+    void saturationGroupsResourceForms() {
+        assertEquals(Material.IRON_INGOT, MaterialValues.saturationKey(Material.IRON_BLOCK));
+        assertEquals(Material.IRON_INGOT, MaterialValues.saturationKey(Material.IRON_NUGGET));
+        assertEquals(Material.COPPER_INGOT, MaterialValues.saturationKey(Material.COPPER_NUGGET));
+        assertEquals(Material.STONE, MaterialValues.saturationKey(Material.STONE_BRICK_SLAB));
+        assertEquals(Material.DIAMOND, MaterialValues.saturationKey(Material.DIAMOND));
+
+        Scorer.Deposit deposit = this.scorer.deposit(
+                List.of(facts(Material.IRON_INGOT, 64), facts(Material.IRON_BLOCK, 8)), Map.of(), 0.0);
+        assertEquals(Set.of(Material.IRON_INGOT), deposit.saturationDeltas().keySet());
+    }
+
+    @Test
+    @DisplayName("Ohne Marktsättigung wird kein Zähler fortgeschrieben")
+    void disabledSaturationRecordsNothing() {
+        Settings settings = Settings.load(TestSupport.config("""
+                punkte:
+                  markt-saettigung:
+                    aktiv: false
+                """), new TestSupport.RecordingLogger());
+        Scorer plain = new Scorer(settings,
+                new CategoryClassifier(settings.categoryOverrides(), TestSupport.EDIBLE::contains));
+        Scorer.Deposit deposit = plain.deposit(List.of(facts(Material.IRON_INGOT, 64)), Map.of(), 0.0);
+        assertTrue(deposit.saturationDeltas().isEmpty());
+    }
+
+    @Test
+    @DisplayName("Verarbeitete Formen sind nie mehr wert als ihr Rohstoff")
+    void derivedFormsDoNotPrintPoints() {
+        double stone = this.scorer.value(facts(Material.STONE, 1)).rawPoints();
+        assertEquals(stone, this.scorer.value(facts(Material.STONE_BRICKS, 1)).rawPoints(), 1e-9);
+        assertEquals(stone / 2, this.scorer.value(facts(Material.STONE_SLAB, 1)).rawPoints(), 1e-9);
+        assertEquals(this.scorer.value(facts(Material.SAND, 1)).rawPoints(),
+                this.scorer.value(facts(Material.GLASS, 1)).rawPoints(), 1e-9);
+        assertEquals(this.scorer.value(facts(Material.CLAY_BALL, 1)).rawPoints(),
+                this.scorer.value(facts(Material.BRICK, 1)).rawPoints(), 1e-9);
+        assertEquals(this.scorer.value(facts(Material.COPPER_INGOT, 9)).rawPoints(),
+                this.scorer.value(facts(Material.COPPER_NUGGET, 9)).rawPoints() * 9, 1e-9);
+    }
+
+    @Test
+    @DisplayName("Ein eigener Basiswert gilt auch für alle abgeleiteten Formen")
+    void overridePropagatesToDerivedForms() {
+        Settings settings = Settings.load(TestSupport.config("""
+                punkte:
+                  material-basiswerte:
+                    iron_ingot: 1.0
+                """), new TestSupport.RecordingLogger());
+        Scorer custom = new Scorer(settings,
+                new CategoryClassifier(settings.categoryOverrides(), TestSupport.EDIBLE::contains));
+        assertEquals(1.0, custom.value(facts(Material.IRON_INGOT, 1)).base(), 1e-9);
+        assertEquals(9.0, custom.value(facts(Material.IRON_BLOCK, 1)).base(), 1e-9);
+        assertEquals(1.0 / 9.0, custom.value(facts(Material.IRON_NUGGET, 1)).base(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("Die Bewertung verändert die übergebene Sättigungs-Sicht nicht")
+    void depositLeavesTheViewAlone() {
+        Map<Material, Double> given = Map.of(Material.IRON_INGOT, 1000.0);
+        this.scorer.deposit(List.of(facts(Material.IRON_INGOT, 64)), given, 0.0);
+        assertEquals(1000.0, given.get(Material.IRON_INGOT), 1e-9);
     }
 
     @Test

@@ -37,6 +37,7 @@ public final class BankGui implements InventoryHolder {
     private final BankRankingPlugin plugin;
     private final Inventory inventory;
     private final ItemStack button;
+    private boolean updateQueued;
 
     public BankGui(BankRankingPlugin plugin) {
         this.plugin = plugin;
@@ -145,11 +146,8 @@ public final class BankGui implements InventoryHolder {
      */
     private Scorer.Deposit preview(Player player, List<ItemStack> stacks) {
         Scorer.Unpacked unpacked = Scorer.unpack(stacks);
-        Saturation live = this.plugin.saturationOf(player);
-        Saturation copy = new Saturation(live.lastDecay());
-        live.amounts().forEach(copy::put);
-        return this.plugin.scorer().deposit(unpacked.valuables(), copy,
-                this.plugin.playerData().get(player.getUniqueId()));
+        return this.plugin.scorer().deposit(Scorer.factsOf(unpacked.valuables()),
+                this.plugin.saturationView(player), this.plugin.playerData().get(player.getUniqueId()));
     }
 
     private static String percent(double raw, double actual) {
@@ -168,9 +166,10 @@ public final class BankGui implements InventoryHolder {
         }
 
         Scorer.Unpacked unpacked = Scorer.unpack(stacks);
-        // Hier wird die Marktsaettigung wirklich fortgeschrieben, nicht nur gelesen.
-        Scorer.Deposit deposit = this.plugin.scorer().deposit(unpacked.valuables(),
-                this.plugin.saturationOf(player), this.plugin.playerData().get(player.getUniqueId()));
+        // Nur rechnen - die Marktsaettigung wird erst mit dem Buchen fortgeschrieben.
+        double before = this.plugin.playerData().get(player.getUniqueId());
+        Scorer.Deposit deposit = this.plugin.scorer().deposit(Scorer.factsOf(unpacked.valuables()),
+                this.plugin.saturationView(player), before);
         double total = deposit.total();
         int itemCount = deposit.itemCount();
         if (total <= 0.0) {
@@ -179,8 +178,9 @@ public final class BankGui implements InventoryHolder {
         }
 
         // Erst buchen und speichern, dann die Items entfernen: schlaegt das Speichern fehl,
-        // behaelt der Spieler alles.
-        PlayerData.AddResult result = this.plugin.playerData().add(player.getUniqueId(), player.getName(), total);
+        // behaelt der Spieler alles und der Marktpreis bleibt unberuehrt.
+        PlayerData.AddResult result = this.plugin.playerData().add(player.getUniqueId(), player.getName(),
+                total, deposit.saturationDeltas());
         if (!result.saved()) {
             deny(player, Messages.BANK_FEHLER);
             return;
@@ -209,9 +209,9 @@ public final class BankGui implements InventoryHolder {
                     Placeholder.unparsed("roh", Scorer.format(deposit.rawTotal())),
                     Placeholder.unparsed("prozent", percent(deposit.rawTotal(), deposit.total())));
         }
-        Rank before = Rank.of(result.total() - total);
+        Rank beforeRank = Rank.of(before);
         Rank after = Rank.of(result.total());
-        if (after != before) {
+        if (after != beforeRank) {
             player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE,
                     SoundCategory.MASTER, 0.8f, 1.0f);
             this.plugin.send(player, Messages.RANG_AUFSTIEG,
@@ -233,6 +233,8 @@ public final class BankGui implements InventoryHolder {
     private void deny(Player player, String message) {
         player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 0.7f, 1.0f);
         this.plugin.send(player, message);
+        // Die Anzeige darf den abgelehnten Zustand nicht ueberleben.
+        updateInfo(player);
     }
 
     /**
@@ -260,11 +262,32 @@ public final class BankGui implements InventoryHolder {
             }
         }
         if (returned) {
-            this.plugin.send(player, Messages.BANK_ZURUECK);
-            if (dropped) {
-                this.plugin.send(player, Messages.BANK_ZURUECK_BODEN);
+            if (dropAll) {
+                this.plugin.send(player, Messages.BANK_TOD_BODEN);
+            } else {
+                this.plugin.send(player, Messages.BANK_ZURUECK);
+                if (dropped) {
+                    this.plugin.send(player, Messages.BANK_ZURUECK_BODEN);
+                }
             }
         }
+    }
+
+    /**
+     * Bittet um eine Aktualisierung der Anzeige im naechsten Tick. Mehrere Klicks im selben Tick
+     * ergeben nur eine Neuberechnung.
+     */
+    public void requestUpdate(Player player) {
+        if (this.updateQueued) {
+            return;
+        }
+        this.updateQueued = true;
+        this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
+            this.updateQueued = false;
+            if (player.isOnline() && player.getOpenInventory().getTopInventory().getHolder(false) == this) {
+                updateInfo(player);
+            }
+        });
     }
 
     /** Nur fuer die Klick-Regeln: die Liste der Ablageplaetze. */

@@ -11,7 +11,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+
 import java.util.UUID;
+
+import org.bukkit.Material;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,7 +46,7 @@ class PlayerDataTest {
     void roundTrip(@TempDir Path dir) {
         PlayerData data = data(dir);
         data.load();
-        PlayerData.AddResult result = data.add(STEVE, "Steve", 44.0);
+        PlayerData.AddResult result = data.add(STEVE, "Steve", 44.0, Map.of());
         assertTrue(result.saved());
         assertEquals(44.0, result.total(), 1e-9);
         assertTrue(new File(dir.toFile(), "players.yml").exists());
@@ -62,7 +65,7 @@ class PlayerDataTest {
         PlayerData data = data(dir);
         data.load();
         for (int i = 0; i < 100; i++) {
-            data.add(STEVE, "Steve", 0.1);
+            data.add(STEVE, "Steve", 0.1, Map.of());
         }
         assertEquals(10.0, data.get(STEVE), 1e-9);
     }
@@ -72,8 +75,8 @@ class PlayerDataTest {
     void updatesName(@TempDir Path dir) {
         PlayerData data = data(dir);
         data.load();
-        data.add(STEVE, "Steve", 5.0);
-        data.add(STEVE, "SteveNeu", 5.0);
+        data.add(STEVE, "Steve", 5.0, Map.of());
+        data.add(STEVE, "SteveNeu", 5.0, Map.of());
         assertEquals("SteveNeu", data.top(1).get(0).getValue().name());
         assertEquals(10.0, data.get(STEVE), 1e-9);
     }
@@ -83,9 +86,9 @@ class PlayerDataTest {
     void ranking(@TempDir Path dir) {
         PlayerData data = data(dir);
         data.load();
-        data.add(STEVE, "Steve", 100.0);
-        data.add(ALEX, "Alex", 300.0);
-        data.add(HERO, "Hero", 100.0);
+        data.add(STEVE, "Steve", 100.0, Map.of());
+        data.add(ALEX, "Alex", 300.0, Map.of());
+        data.add(HERO, "Hero", 100.0, Map.of());
 
         List<Map.Entry<UUID, PlayerData.Entry>> top = data.top(3);
         assertEquals("Alex", top.get(0).getValue().name());
@@ -141,8 +144,8 @@ class PlayerDataTest {
     void noLeftoverTempFile(@TempDir Path dir) throws IOException {
         PlayerData data = data(dir);
         data.load();
-        data.add(STEVE, "Steve", 1.0);
-        data.add(STEVE, "Steve", 1.0);
+        data.add(STEVE, "Steve", 1.0, Map.of());
+        data.add(STEVE, "Steve", 1.0, Map.of());
         try (var stream = Files.list(dir)) {
             assertTrue(stream.noneMatch(p -> p.getFileName().toString().endsWith(".tmp")));
         }
@@ -153,7 +156,7 @@ class PlayerDataTest {
     void reloadReadsFile(@TempDir Path dir) throws IOException {
         PlayerData data = data(dir);
         data.load();
-        data.add(STEVE, "Steve", 10.0);
+        data.add(STEVE, "Steve", 10.0, Map.of());
 
         Files.writeString(dir.resolve("players.yml"), """
                 spieler:
@@ -170,11 +173,118 @@ class PlayerDataTest {
     void reloadKeepsMemoryOnBrokenFile(@TempDir Path dir) throws IOException {
         PlayerData data = data(dir);
         data.load();
-        data.add(STEVE, "Steve", 10.0);
+        data.add(STEVE, "Steve", 10.0, Map.of());
 
         Files.writeString(dir.resolve("players.yml"), "spieler: [\n", StandardCharsets.UTF_8);
         assertFalse(data.reload());
         assertEquals(10.0, data.get(STEVE), 1e-9);
         assertTrue(Files.exists(dir.resolve("players.yml")));
+    }
+
+    private static File fileIn(Path dir) {
+        return new File(dir.toFile(), "players.yml");
+    }
+
+    private static String readFile(Path dir) throws IOException {
+        return Files.readString(fileIn(dir).toPath());
+    }
+
+    @Test
+    @DisplayName("Eine Einzahlung bucht Punkte und Marktsättigung gemeinsam")
+    void bookingIsOneTransaction(@TempDir Path dir) {
+        PlayerData data = data(dir);
+        data.load();
+        PlayerData.AddResult result = data.add(STEVE, "Steve", 100.0, Map.of(Material.IRON_INGOT, 600.0));
+        assertTrue(result.saved());
+        // Der Zeitverfall laeuft fortlaufend, deshalb eine Toleranz statt eines exakten Werts.
+        assertEquals(600.0, data.saturationView(STEVE, 24.0).get(Material.IRON_INGOT), 0.01);
+
+        PlayerData reloaded = data(dir);
+        reloaded.load();
+        assertEquals(100.0, reloaded.get(STEVE), 1e-9);
+        assertEquals(600.0, reloaded.saturationView(STEVE, 24.0).get(Material.IRON_INGOT), 0.01);
+    }
+
+    @Test
+    @DisplayName("Ein ungültiger Betrag wird abgelehnt, ohne etwas zu verändern")
+    void rejectsInvalidAmount(@TempDir Path dir) {
+        PlayerData data = data(dir);
+        data.load();
+        data.add(STEVE, "Steve", 50.0, Map.of());
+        assertFalse(data.add(STEVE, "Steve", Double.NaN, Map.of(Material.DIRT, 5.0)).saved());
+        assertFalse(data.add(STEVE, "Steve", -1.0, Map.of()).saved());
+        assertEquals(50.0, data.get(STEVE), 1e-9);
+        assertTrue(data.saturationView(STEVE, 24.0).isEmpty());
+    }
+
+    @Test
+    @DisplayName("Wer nur nachschaut, hinterlässt keinen Sättigungseintrag")
+    void readingDoesNotCreateAnEntry(@TempDir Path dir) throws IOException {
+        PlayerData data = data(dir);
+        data.load();
+        assertTrue(data.saturationView(STEVE, 24.0).isEmpty());
+        data.add(STEVE, "Steve", 10.0, Map.of());
+        assertFalse(readFile(dir).contains("saettigung"), "ohne Zähler wird kein Block geschrieben");
+    }
+
+    @Test
+    @DisplayName("Kleinstzähler landen gar nicht erst in der Datei")
+    void tinyCountersAreNotWritten(@TempDir Path dir) throws IOException {
+        PlayerData data = data(dir);
+        data.load();
+        data.add(STEVE, "Steve", 10.0, Map.of(Material.DIRT, 0.4));
+        assertFalse(readFile(dir).contains("saettigung"));
+    }
+
+    @Test
+    @DisplayName("Eine Datei ohne Spieler-Sektion wird zur Seite gelegt statt überschrieben")
+    void fileWithoutSectionIsQuarantined(@TempDir Path dir) throws IOException {
+        Files.writeString(fileIn(dir).toPath(), "irgendwas: 1\n");
+        PlayerData data = data(dir);
+        data.load();
+        assertEquals(0, data.size());
+        File[] quarantined = dir.toFile().listFiles((folder, name) -> name.contains(".corrupt-"));
+        assertTrue(quarantined != null && quarantined.length > 0, "die beschädigte Datei liegt daneben");
+    }
+
+    @Test
+    @DisplayName("Unlesbare Einträge überleben das nächste Speichern")
+    void unreadableEntriesSurviveSaving(@TempDir Path dir) throws IOException {
+        Files.writeString(fileIn(dir).toPath(), """
+                spieler:
+                  %s:
+                    name: Steve
+                    punkte: 100.0
+                  keine-uuid:
+                    name: Alex
+                    punkte: 50.0
+                """.formatted(STEVE));
+        PlayerData data = data(dir);
+        data.load();
+        assertEquals(1, data.size());
+
+        data.add(STEVE, "Steve", 5.0, Map.of());
+        String content = readFile(dir);
+        assertTrue(content.contains("keine-uuid"), "der unlesbare Eintrag steht weiterhin in der Datei");
+        assertTrue(content.contains("Alex"), "mitsamt seinem Inhalt");
+    }
+
+    @Test
+    @DisplayName("Neu laden ersetzt auch die Marktsättigung")
+    void reloadReplacesSaturation(@TempDir Path dir) throws IOException {
+        PlayerData data = data(dir);
+        data.load();
+        data.add(STEVE, "Steve", 10.0, Map.of(Material.IRON_INGOT, 900.0));
+        assertFalse(data.saturationView(STEVE, 24.0).isEmpty());
+
+        // Der Betreiber entfernt den Sättigungsblock von Hand.
+        Files.writeString(fileIn(dir).toPath(), """
+                spieler:
+                  %s:
+                    name: Steve
+                    punkte: 10.0
+                """.formatted(STEVE));
+        assertTrue(data.reload());
+        assertTrue(data.saturationView(STEVE, 24.0).isEmpty());
     }
 }

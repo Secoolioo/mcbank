@@ -20,7 +20,8 @@ final class TestSupport {
 
     /** Essbare Materialien fuer die Tests - im Betrieb liefert das die Server-Registry. */
     static final Set<Material> EDIBLE = Set.of(
-            Material.BREAD, Material.GOLDEN_APPLE, Material.COOKED_BEEF, Material.APPLE, Material.CARROT);
+            Material.BREAD, Material.GOLDEN_APPLE, Material.COOKED_BEEF, Material.APPLE, Material.CARROT,
+            Material.DRIED_KELP);
 
     private TestSupport() {
     }

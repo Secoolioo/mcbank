@@ -3,7 +3,9 @@ package de.secoolio.bankranking;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 import io.papermc.paper.datacomponent.DataComponentTypes;
@@ -35,11 +37,24 @@ public final class Scorer {
     public record Valuation(ItemFacts facts, Category category, double base, double multiplier,
                             double rarityFactor, double enchantBonus, double rawPoints,
                             double saturationFactor, double points) {
+
+        /** Dieselbe Bewertung mit der tatsaechlich gutgeschriebenen Punktzahl. */
+        Valuation withCredit(double credited) {
+            double factor = this.rawPoints > 0.0 ? credited / this.rawPoints : 1.0;
+            return new Valuation(this.facts, this.category, this.base, this.multiplier,
+                    this.rarityFactor, this.enchantBonus, this.rawPoints, factor, credited);
+        }
     }
 
-    /** Das Ergebnis einer ganzen Einzahlung, mit beiden Bremsen. */
+    /**
+     * Das Ergebnis einer ganzen Einzahlung.
+     *
+     * @param saturationDeltas Zuwaechse je Rohstoffgruppe; leer, wenn die Marktsaettigung aus ist.
+     *                         Sie werden erst gebucht, wenn die Einzahlung wirklich gespeichert ist.
+     */
     public record Deposit(List<Valuation> valuations, int itemCount, double rawTotal,
-                          double wealthFactor, double total) {
+                          double afterSaturation, double wealthFactor, double total,
+                          Map<Material, Double> saturationDeltas) {
     }
 
     /** Ergebnis des Auspackens: zu bewertende Items und leere Behaelter, die zurueckgehen. */
@@ -56,25 +71,15 @@ public final class Scorer {
 
     /** Bewertet einen Stapel ohne die beiden Bremsen. */
     public Valuation value(ItemFacts facts) {
-        return value(facts, 1.0);
-    }
-
-    /**
-     * Bewertet einen Stapel.
-     *
-     * @param saturationFactor Marktsättigung dieses Materials (1.0 = unberührter Preis)
-     */
-    public Valuation value(ItemFacts facts, double saturationFactor) {
         Category category = this.classifier.classify(facts.material());
-        // Grundwert: eigener Eintrag aus der Config, sonst die eingebaute Materialtabelle.
-        double base = this.settings.materialBase().getOrDefault(facts.material(),
-                MaterialValues.baseValue(facts.material(), this.settings.fallbackValue()));
+        // Grundwert: eigener Eintrag aus der Config (auch fuer abgeleitete Formen), sonst die Tabelle.
+        double base = MaterialValues.baseValue(facts.material(), this.settings.fallbackValue(),
+                this.settings.materialBase());
         double multiplier = this.settings.multiplier(category);
         double rarityFactor = this.settings.rarityBase(facts.rarity());
         double bonus = this.settings.enchantBonusPerLevel() * facts.enchantLevelSum();
         double raw = base * facts.amount() * multiplier * rarityFactor + bonus;
-        return new Valuation(facts, category, base, multiplier, rarityFactor, bonus,
-                raw, saturationFactor, raw * saturationFactor);
+        return new Valuation(facts, category, base, multiplier, rarityFactor, bonus, raw, 1.0, raw);
     }
 
     /** Summe einer Einzahlung, auf eine Nachkommastelle gerundet. */
@@ -87,7 +92,7 @@ public final class Scorer {
     }
 
     /**
-     * Wie viel ein Item bei diesem Kontostand noch zählt.
+     * Wie viel das naechste Item bei diesem Kontostand noch zählt - nur fuer Anzeigen.
      *
      * <p>Weiche Kurve statt Stufen, damit es an keiner Grenze springt:
      * {@code (schwelle / (schwelle + kontostand)) ^ stärke}, nach unten begrenzt.
@@ -96,57 +101,131 @@ public final class Scorer {
         if (!this.settings.wealthEnabled() || balance <= 0.0) {
             return 1.0;
         }
-        double threshold = this.settings.wealthThreshold();
-        if (threshold <= 0.0) {
-            return 1.0;
-        }
-        double factor = Math.pow(threshold / (threshold + balance), this.settings.wealthStrength());
-        return Math.max(this.settings.wealthFloor(), Math.min(1.0, factor));
+        double factor = Math.pow(this.settings.wealthThreshold()
+                / (this.settings.wealthThreshold() + balance), this.settings.wealthStrength());
+        return Math.min(1.0, Math.max(this.settings.wealthFloor(), factor));
     }
 
-    /**
-     * Wie viel ein Material noch zählt, wenn davon schon {@code given} Rohpunkte abgegeben wurden.
-     */
+    /** Wie viel das naechste Item eines Rohstoffs noch zählt - nur fuer Anzeigen. */
     public double saturationFactor(double given) {
         if (!this.settings.saturationEnabled() || given <= 0.0) {
             return 1.0;
         }
-        double threshold = this.settings.saturationThreshold();
-        if (threshold <= 0.0) {
-            return 1.0;
-        }
-        double factor = threshold / (threshold + given);
-        return Math.max(this.settings.saturationFloor(), Math.min(1.0, factor));
+        double factor = this.settings.saturationThreshold() / (this.settings.saturationThreshold() + given);
+        return Math.min(1.0, Math.max(this.settings.saturationFloor(), factor));
     }
 
     /**
-     * Bewertet eine ganze Einzahlung: jeder Stapel drückt den Preis seines Materials weiter,
-     * am Ende greift die Wohlstands-Bremse auf die Summe.
+     * Die Gutschrift fuer {@code raw} Rohpunkte eines Rohstoffs, von dem schon {@code given}
+     * abgegeben wurden.
      *
-     * @param saturation gelesen und fortgeschrieben; {@code null} schaltet die Sättigung ab
+     * <p>Gebucht wird die Flaeche unter der Preiskurve statt ihres Randwertes. Dadurch ist es egal,
+     * ob jemand einen grossen oder viele kleine Stapel abgibt und in welcher Reihenfolge sie liegen.
      */
-    public Deposit deposit(List<ItemStack> stacks, Saturation saturation, double balance) {
+    public double saturationCredit(double given, double raw) {
+        if (!this.settings.saturationEnabled() || raw <= 0.0) {
+            return Math.max(0.0, raw);
+        }
+        double threshold = this.settings.saturationThreshold();
+        double floor = this.settings.saturationFloor();
+        double start = Math.max(0.0, given);
+        // Ab dieser Menge greift nur noch der Mindestfaktor.
+        double floorAt = floor > 0.0 ? threshold * (1.0 / floor - 1.0) : Double.POSITIVE_INFINITY;
+        if (start >= floorAt) {
+            return raw * floor;
+        }
+        double untilFloor = floorAt - start;
+        if (raw <= untilFloor) {
+            return threshold * Math.log((threshold + start + raw) / (threshold + start));
+        }
+        return threshold * Math.log((threshold + floorAt) / (threshold + start))
+                + (raw - untilFloor) * floor;
+    }
+
+    /**
+     * Die Gutschrift fuer {@code amount} bereits marktbereinigte Punkte ab dem Kontostand
+     * {@code balance}.
+     *
+     * <p>Ebenfalls die Flaeche unter der Kurve: eine grosse Einzahlung bringt genau so viel wie
+     * viele kleine, Horten lohnt sich also nicht.
+     */
+    public double wealthCredit(double balance, double amount) {
+        if (!this.settings.wealthEnabled() || amount <= 0.0) {
+            return Math.max(0.0, amount);
+        }
+        double threshold = this.settings.wealthThreshold();
+        double strength = this.settings.wealthStrength();
+        double floor = this.settings.wealthFloor();
+        double start = Math.max(0.0, balance);
+        if (strength <= 0.0) {
+            return amount;
+        }
+        // Ab diesem Kontostand greift nur noch der Mindestfaktor.
+        double floorAt = floor > 0.0
+                ? threshold * (Math.pow(floor, -1.0 / strength) - 1.0)
+                : Double.POSITIVE_INFINITY;
+        if (start >= floorAt) {
+            return amount * floor;
+        }
+        double needed = rawNeeded(floorAt, threshold, strength) - rawNeeded(start, threshold, strength);
+        if (amount <= needed) {
+            return gainedBalance(start, amount, threshold, strength);
+        }
+        return (floorAt - start) + (amount - needed) * floor;
+    }
+
+    /** Stammfunktion: wie viele Rohpunkte noetig sind, um von 0 auf diesen Kontostand zu kommen. */
+    private static double rawNeeded(double balance, double threshold, double strength) {
+        return Math.pow(threshold + balance, strength + 1.0)
+                / ((strength + 1.0) * Math.pow(threshold, strength));
+    }
+
+    /** Umkehrung: welcher Kontostand-Zuwachs sich aus {@code amount} Rohpunkten ergibt. */
+    private static double gainedBalance(double balance, double amount, double threshold, double strength) {
+        double target = rawNeeded(balance, threshold, strength) + amount;
+        double reached = Math.pow(target * (strength + 1.0) * Math.pow(threshold, strength),
+                1.0 / (strength + 1.0)) - threshold;
+        return Math.max(0.0, reached - balance);
+    }
+
+    /**
+     * Rechnet eine Einzahlung durch, ohne irgendetwas zu verändern.
+     *
+     * @param given   bisher abgegebene Rohpunkte je Rohstoffgruppe
+     * @param balance Kontostand vor dieser Einzahlung
+     */
+    public Deposit deposit(List<ItemFacts> stacks, Map<Material, Double> given, double balance) {
         List<Valuation> valuations = new ArrayList<>();
+        Map<Material, Double> pending = new EnumMap<>(Material.class);
         int itemCount = 0;
         double raw = 0.0;
-        for (ItemStack stack : stacks) {
-            ItemFacts facts = facts(stack);
-            double given = saturation == null ? 0.0 : saturation.amount(facts.material());
-            Valuation valuation = value(facts, saturationFactor(given));
-            valuations.add(valuation);
+        double credited = 0.0;
+        for (ItemFacts facts : stacks) {
+            Valuation base = value(facts);
+            Material key = MaterialValues.saturationKey(facts.material());
+            double before = given.getOrDefault(key, 0.0) + pending.getOrDefault(key, 0.0);
+            double credit = saturationCredit(before, base.rawPoints());
+            valuations.add(base.withCredit(credit));
             itemCount += facts.amount();
-            raw += valuation.rawPoints();
-            if (saturation != null) {
-                // Der nächste Stapel desselben Materials ist schon weniger wert.
-                saturation.add(facts.material(), valuation.rawPoints());
+            raw += base.rawPoints();
+            credited += credit;
+            if (this.settings.saturationEnabled()) {
+                pending.merge(key, base.rawPoints(), Double::sum);
             }
         }
-        double afterSaturation = 0.0;
-        for (Valuation valuation : valuations) {
-            afterSaturation += valuation.points();
+        double total = wealthCredit(balance, credited);
+        double wealth = credited > 0.0 ? total / credited : 1.0;
+        return new Deposit(valuations, itemCount, round1(raw), round1(credited), wealth,
+                round1(total), Map.copyOf(pending));
+    }
+
+    /** Bukkit-Adapter: die Bewertungsgrundlagen mehrerer Stapel. */
+    public static List<ItemFacts> factsOf(List<ItemStack> stacks) {
+        List<ItemFacts> facts = new ArrayList<>(stacks.size());
+        for (ItemStack stack : stacks) {
+            facts.add(facts(stack));
         }
-        double wealth = wealthFactor(balance);
-        return new Deposit(valuations, itemCount, round1(raw), wealth, round1(afterSaturation * wealth));
+        return facts;
     }
 
     public static double round1(double value) {
