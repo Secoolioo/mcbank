@@ -80,10 +80,14 @@ public final class ResourcePacks implements Listener {
     private static final int UMSCHALTEN_AB = 2;
 
     /** Wie lange der Beitritt auf eine Antwort aus der Konfigurationsphase wartet. */
-    private static final long NACHREICHEN_TICKS = 60L;
+    private static final long NACHREICHEN_TICKS = 200L;
 
     /** Nicht final: bei dauerhafter Unerreichbarkeit wird auf die Ablage umgestellt. */
     private volatile String url;
+    /** Wie ausgeliefert wird - oder warum nicht. */
+    private volatile PackStatus.Delivery delivery;
+    /** Die fertige Anfrage samt Hash; bei fremder Adresse aus der echten Quelle. */
+    private volatile ResourcePackInfo info;
     private final Set<UUID> loaded = Collections.synchronizedSet(new HashSet<>());
     /** Wem schon einmal ueber den Ausweichweg nachgereicht wurde - genau einmal je Spieler. */
     private final Set<UUID> retried = Collections.synchronizedSet(new HashSet<>());
@@ -91,15 +95,71 @@ public final class ResourcePacks implements Listener {
     private final Set<UUID> configured = Collections.synchronizedSet(new HashSet<>());
     /** Bei wem der Download gescheitert ist - zaehlt je Spieler nur einmal. */
     private final Set<UUID> failed = Collections.synchronizedSet(new HashSet<>());
-    /** Wer ueberhaupt einen Endzustand gemeldet hat - egal welchen. */
-    private final Set<UUID> answered = Collections.synchronizedSet(new HashSet<>());
+    /** An wen ueberhaupt je eine Anfrage hinausging - der Unterschied zu "abgelehnt". */
+    private final Set<UUID> offered = Collections.synchronizedSet(new HashSet<>());
+    /** Wer in dieser Sitzung schon einen Hinweis bekommen hat - hoechstens einer je Beitritt. */
+    private final Set<UUID> hingewiesen = Collections.synchronizedSet(new HashSet<>());
+    /** Wer gerade laedt: hat angenommen oder heruntergeladen, aber noch nicht fertig. */
+    private final Set<UUID> pending = Collections.synchronizedSet(new HashSet<>());
+    /** Der letzte Endzustand je Spieler. */
+    private final java.util.Map<UUID, ResourcePackStatus> answer =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     private ResourcePacks(BankRankingPlugin plugin, ResourcePackFile file,
-                          ResourcePackServer server, String url) {
+                          ResourcePackServer server, String url,
+                          PackStatus.Delivery delivery) {
         this.plugin = plugin;
         this.file = file;
         this.server = server;
         this.url = url;
+        this.delivery = delivery;
+        this.info = file == null ? null
+                : ResourcePackInfo.resourcePackInfo(PACK_ID, URI.create(url), file.sha1());
+        if (delivery == PackStatus.Delivery.FREMDE_ADRESSE) {
+            adoptRemoteHash(url);
+        }
+    }
+
+    /**
+     * Holt den Hash aus der Datei, die dort tatsaechlich liegt.
+     *
+     * <p>Das behebt einen Fehler, der die ganze Auslieferung lahmlegte und dabei voellig
+     * stumm blieb: liegt im Ordner pack-eigene irgendeine Datei, packt das Plugin das Pack
+     * selbst neu, und ein selbst gepacktes ZIP hat nie denselben SHA-1 wie das von Gradle
+     * gebaute - auch bei byteweise gleichem Inhalt, denn Gradle schreibt Verzeichniseintraege
+     * und einen anderen Nullzeitstempel. Angekuendigt wurde trotzdem der lokale Hash, waehrend
+     * die fremde Adresse das veroeffentlichte Pack lieferte. Der Client verglich und verwarf.
+     *
+     * <p>Bei einer fremden Adresse ist der lokale Bau also keine verlaessliche Quelle. Bis der
+     * echte Hash vorliegt, wird weiter mit dem lokalen ausgeliefert - das ist nicht schlechter
+     * als bisher und wird binnen Sekunden ersetzt.
+     */
+    private void adoptRemoteHash(String adresse) {
+        try {
+            ResourcePackInfo.resourcePackInfo()
+                    .id(PACK_ID)
+                    .uri(URI.create(adresse))
+                    .computeHashAndBuild(runnable ->
+                            this.plugin.getServer().getScheduler()
+                                    .runTaskAsynchronously(this.plugin, runnable))
+                    .thenAccept(fertig -> {
+                        this.info = fertig;
+                        this.plugin.getLogger().info("Hash der ausgelieferten Datei: "
+                                + fertig.hash()
+                                + (this.file != null && fertig.hash().equals(this.file.sha1())
+                                        ? " (gleich dem hier gebauten)"
+                                        : " (weicht vom hier gebauten ab - es gilt der echte)"));
+                    })
+                    .exceptionally(fehler -> {
+                        this.plugin.getLogger().warning("Der Hash von " + adresse
+                                + " liess sich nicht bestimmen (" + fehler
+                                + "). Es gilt der hier gebaute.");
+                        return null;
+                    });
+        } catch (RuntimeException e) {
+            this.plugin.getLogger().warning("Der Hash von " + adresse
+                    + " liess sich nicht bestimmen (" + e + "). Es gilt der hier gebaute.");
+        }
     }
 
     /**
@@ -118,7 +178,12 @@ public final class ResourcePacks implements Listener {
             // Ursache lief zwangslaeufig ins Leere.
             plugin.getLogger().info("Resourcepack ist in der config.yml abgeschaltet "
                     + "(resourcepack.aktiv: false) - das Kopfgeld zeigt die Sparfassung.");
-            return null;
+            // Kein null mehr: "abgeschaltet" ist ein Zustand des Objekts. Frueher fehlte
+            // dann das Objekt, der Listener wurde nicht angemeldet, und JEDER Beitritt blieb
+            // stumm - waehrend die Ursache genau einmal beim Start im Log stand, also dort,
+            // wo der Betreiber im Zweifel nicht nachsieht.
+            return new ResourcePacks(plugin, null, null, "",
+                    PackStatus.Delivery.ABGESCHALTET);
         }
         try {
             ResourcePackFile datei = ResourcePackFile.build(plugin.getDataFolder().toPath(),
@@ -140,7 +205,8 @@ public final class ResourcePacks implements Listener {
                 // Fremde Ablage: der eingebaute Webserver wird gar nicht erst gestartet.
                 plugin.getLogger().info("Resourcepack kommt von " + adresse
                         + " (SHA-1 " + datei.sha1() + ", " + kilobyte(datei) + " KB)");
-                return new ResourcePacks(plugin, datei, null, adresse);
+                return new ResourcePacks(plugin, datei, null, adresse,
+                        PackStatus.Delivery.FREMDE_ADRESSE);
             }
 
             ResourcePackServer server;
@@ -156,7 +222,8 @@ public final class ResourcePacks implements Listener {
                         + settings.packPort() + " starten (" + e.getMessage() + "). Das Pack wird "
                         + "stattdessen ueber " + FALLBACK_URL + " ausgeliefert. Ein anderer Wert "
                         + "unter resourcepack.port bringt den eigenen Webserver zurueck.");
-                return new ResourcePacks(plugin, datei, null, FALLBACK_URL);
+                return new ResourcePacks(plugin, datei, null, FALLBACK_URL,
+                        PackStatus.Delivery.RUECKFALL_PORT);
             }
             String host = adresse.isEmpty() ? localAddress() : adresse;
             if ("127.0.0.1".equals(host) && adresse.isEmpty()) {
@@ -168,7 +235,8 @@ public final class ResourcePacks implements Listener {
                         + "niemanden erreichbar. Bitte resourcepack.adresse in der config.yml "
                         + "setzen. Bis dahin wird das Pack ueber die oeffentliche Ablage "
                         + "ausgeliefert.");
-                return new ResourcePacks(plugin, datei, server, FALLBACK_URL);
+                return new ResourcePacks(plugin, datei, server, FALLBACK_URL,
+                        PackStatus.Delivery.RUECKFALL_ADRESSE);
             }
             String url = server.url(host);
             plugin.getLogger().info("Resourcepack wird ausgeliefert unter " + url
@@ -177,12 +245,15 @@ public final class ResourcePacks implements Listener {
                 plugin.getLogger().info("Eigene Dateien aus pack-eigene uebernommen: "
                         + String.join(", ", datei.replaced()));
             }
-            return new ResourcePacks(plugin, datei, server, url);
+            return new ResourcePacks(plugin, datei, server, url,
+                    PackStatus.Delivery.EIGENER_SERVER);
         } catch (IOException e) {
             plugin.getLogger().warning("Das Resourcepack konnte nicht bereitgestellt werden ("
                     + e.getMessage() + "). Das Kopfgeld laeuft in der Sparfassung weiter; "
-                    + "bei einem belegten Port hilft ein anderer Wert unter resourcepack.port.");
-            return null;
+                    + "bei einem belegten Port hilft ein anderer Wert unter resourcepack.port. "
+                    + "Es wird stattdessen ueber " + FALLBACK_URL + " ausgeliefert.");
+            return new ResourcePacks(plugin, null, null, FALLBACK_URL,
+                    PackStatus.Delivery.RUECKFALL_BAUFEHLER);
         }
     }
 
@@ -265,30 +336,66 @@ public final class ResourcePacks implements Listener {
      * <p>Das beantwortet vor dem ersten Spieler die Frage, die sonst erst im Spiel auffiele:
      * ist die Adresse ueberhaupt erreichbar und stimmt der Hash?
      */
-    boolean selfTest() {
+    /** Das Ergebnis des Selbsttests, in einem Satz, fuer Log und Chat zugleich. */
+    record SelfTest(boolean ok, String text) {
+    }
+
+    /**
+     * Holt das Pack von der eigenen Adresse und vergleicht es mit dem, was angekuendigt wird.
+     *
+     * <p>Verglichen wird der SHA-1, nicht die Groesse. Bei einer fremden Adresse ist die
+     * lokale Groesse gar kein Massstab - genau diese Verwechslung hat die Auslieferung schon
+     * einmal stillschweigend zerlegt. Der Hash ist das, worauf der Client selbst prueft.
+     */
+    SelfTest selfTest() {
+        String adresse = this.url;
+        if (this.delivery == PackStatus.Delivery.ABGESCHALTET) {
+            return new SelfTest(false, "Das Resourcepack ist in der config.yml abgeschaltet.");
+        }
+        if (this.info == null) {
+            return new SelfTest(false, "Es liegt kein baubares Pack vor.");
+        }
         try {
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(3)).build();
             HttpResponse<byte[]> antwort = client.send(
-                    HttpRequest.newBuilder(URI.create(this.url))
+                    HttpRequest.newBuilder(URI.create(adresse))
                             .timeout(Duration.ofSeconds(10)).build(),
                     HttpResponse.BodyHandlers.ofByteArray());
             if (antwort.statusCode() != 200) {
-                this.plugin.getLogger().warning("Selbsttest des Resourcepacks: " + this.url
-                        + " antwortet mit " + antwort.statusCode());
-                return false;
+                return new SelfTest(false, adresse + " antwortet mit "
+                        + antwort.statusCode() + ".");
             }
-            if (antwort.body().length != this.file.size()) {
-                this.plugin.getLogger().warning("Selbsttest des Resourcepacks: unter " + this.url
-                        + " liegt eine andere Datei als erwartet");
-                return false;
+            String gefunden = sha1Of(antwort.body());
+            String erwartet = sha1();
+            if (!gefunden.equalsIgnoreCase(erwartet)) {
+                return new SelfTest(false, "Unter " + adresse + " liegt eine andere Datei als "
+                        + "angekuendigt (dort " + gefunden + ", angekuendigt " + erwartet
+                        + "). Jeder Client verwirft das Pack.");
             }
-            return true;
+            return new SelfTest(true, adresse + " liefert " + kilobyte(antwort.body().length)
+                    + " KB mit dem erwarteten Hash.");
         } catch (Exception e) {
-            this.plugin.getLogger().warning("Selbsttest des Resourcepacks fehlgeschlagen: "
-                    + this.url + " ist nicht erreichbar (" + e.getMessage()
+            return new SelfTest(false, adresse + " ist nicht erreichbar (" + e.getMessage()
                     + "). Spieler bekommen die Sparfassung.");
-            return false;
+        }
+    }
+
+    private static long kilobyte(int bytes) {
+        return Math.round(bytes / 1024.0);
+    }
+
+    private static String sha1Of(byte[] daten) {
+        try {
+            byte[] roh = java.security.MessageDigest.getInstance("SHA-1").digest(daten);
+            StringBuilder sb = new StringBuilder(roh.length * 2);
+            for (byte b : roh) {
+                sb.append(Character.forDigit((b >> 4) & 0xF, 16));
+                sb.append(Character.forDigit(b & 0xF, 16));
+            }
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-1 fehlt in dieser Laufzeit", e);
         }
     }
 
@@ -309,6 +416,9 @@ public final class ResourcePacks implements Listener {
      */
     @EventHandler
     public void onConfigure(AsyncPlayerConnectionConfigureEvent event) {
+        if (this.delivery == PackStatus.Delivery.ABGESCHALTET) {
+            return;
+        }
         PlayerConfigurationConnection verbindung = event.getConnection();
         UUID id = null;
         try {
@@ -350,7 +460,8 @@ public final class ResourcePacks implements Listener {
      * nichts, und der teure Neuaufbau mitten im Spiel bleibt aus.
      */
     void send(Player player) {
-        if (this.loaded.contains(player.getUniqueId())) {
+        if (this.delivery == PackStatus.Delivery.ABGESCHALTET
+                || this.loaded.contains(player.getUniqueId())) {
             return;
         }
         send(player, this.url);
@@ -366,7 +477,7 @@ public final class ResourcePacks implements Listener {
      */
     void sendOnJoin(Player player) {
         UUID id = player.getUniqueId();
-        if (this.loaded.contains(id)) {
+        if (this.delivery == PackStatus.Delivery.ABGESCHALTET || this.loaded.contains(id)) {
             return;
         }
         if (!this.configured.contains(id)) {
@@ -375,7 +486,10 @@ public final class ResourcePacks implements Listener {
             return;
         }
         this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
-            if (!player.isOnline() || this.answered.contains(id)) {
+            // pending zaehlt mit: wer gerade laedt, hat geantwortet genug. Ohne diese
+            // Bedingung bekam ein Spieler mitten im Download eine zweite Anfrage.
+            if (!player.isOnline() || this.answer.containsKey(id)
+                    || this.pending.contains(id)) {
                 return;
             }
             this.plugin.getLogger().warning(player.getName() + " hat auf das Pack aus der "
@@ -391,10 +505,20 @@ public final class ResourcePacks implements Listener {
     private void send(Audience empfaenger, String adresse, UUID id, String name) {
         // Ohne diese Zeile war der gesamte Sendeweg im Log unsichtbar: es liess sich nicht
         // unterscheiden, ob ein Spieler abgelehnt hatte oder ob nie etwas hinausgegangen war.
+        ResourcePackInfo anfrage = this.info;
+        if (anfrage == null) {
+            // Ohne gebautes Pack gibt es keinen Hash und damit keine gueltige Anfrage.
+            return;
+        }
+        if (!adresse.equals(anfrage.uri().toString())) {
+            // Der Ausweichweg schickt an eine andere Adresse als die gespeicherte.
+            anfrage = ResourcePackInfo.resourcePackInfo(PACK_ID, URI.create(adresse),
+                    anfrage.hash());
+        }
+        this.offered.add(id);
         this.plugin.getLogger().info("Pack-Anfrage an " + name + " -> " + adresse);
         empfaenger.sendResourcePacks(ResourcePackRequest.resourcePackRequest()
-                .packs(ResourcePackInfo.resourcePackInfo(PACK_ID, URI.create(adresse),
-                        this.file.sha1()))
+                .packs(anfrage)
                 // Kein Kick: der Zwang haengt ohnehin an require-resource-pack in den
                 // server.properties, und wir wollen ihn ausdruecklich nicht.
                 .required(false)
@@ -416,20 +540,30 @@ public final class ResourcePacks implements Listener {
      * deshalb haengt die Erkennung eines unerreichbaren Ports hier.
      */
     private void record(UUID id, String name, ResourcePackStatus status, Audience empfaenger) {
-        if (status == ResourcePackStatus.SUCCESSFULLY_LOADED) {
-            this.answered.add(id);
-            this.loaded.add(id);
-            this.plugin.getLogger().info("Pack geladen von " + name);
-            return;
-        }
         if (status.intermediate()) {
+            // ANGENOMMEN und HERUNTERGELADEN sind keine Antwort, aber ein Lebenszeichen: der
+            // Client arbeitet noch. Frueher gingen sie wortlos verloren, und das Nachreichen
+            // beim Beitritt schoss deshalb mitten in einen laufenden Download - also genau
+            // der Ressourcen-Neuaufbau im laufenden Spiel, den die Konfigurationsphase
+            // vermeiden soll.
+            this.pending.add(id);
             return;
         }
-        this.answered.add(id);
-        this.loaded.remove(id);
-        this.plugin.getLogger().info("Pack-Antwort von " + name + ": " + status);
-        if (status == ResourcePackStatus.FAILED_DOWNLOAD
-                || status == ResourcePackStatus.INVALID_URL) {
+        this.pending.remove(id);
+        ResourcePackStatus vorher = this.answer.put(id, status);
+        if (status == ResourcePackStatus.SUCCESSFULLY_LOADED) {
+            this.loaded.add(id);
+        } else {
+            this.loaded.remove(id);
+        }
+        if (vorher != status) {
+            // Beide Wege - das Bukkit-Ereignis und der Adventure-Rueckruf - laufen hier
+            // durch. Ohne diesen Vergleich stuende jede Antwort doppelt im Log.
+            this.plugin.getLogger().info(status == ResourcePackStatus.SUCCESSFULLY_LOADED
+                    ? "Pack geladen von " + name
+                    : "Pack-Antwort von " + name + ": " + status);
+        }
+        if (PackStatus.istErreichbarkeitsproblem(status)) {
             handleFailure(id, name, empfaenger);
         }
     }
@@ -437,6 +571,50 @@ public final class ResourcePacks implements Listener {
     /** Hat dieser Spieler unser Pack geladen? */
     public boolean has(Player player) {
         return this.loaded.contains(player.getUniqueId());
+    }
+
+    /**
+     * Schickt sofort und ohne jede Ruecksicht auf den bisherigen Zustand.
+     *
+     * <p>Nur fuer den Verwaltungsbefehl: damit sich die ganze Kette im Spiel pruefen laesst,
+     * ohne den Server neu zu starten.
+     */
+    /**
+     * Sagt einem Administrator beim Beitritt, wenn mit der Auslieferung etwas nicht stimmt.
+     *
+     * <p>Der Grund fuer diese Methode ist eine Fehlersuche, die Stunden gekostet hat: die
+     * Ursache stand die ganze Zeit im Server-Log, und genau dorthin konnte der Betreiber nicht
+     * sehen. Gegen Spam vier Sperren: das Recht, ein tatsaechliches Problem, hoechstens eine
+     * Zeile je Beitritt, und der Schalter resourcepack.hinweis.
+     */
+    void notifyAdmin(Player player) {
+        if (!this.plugin.settings().packHint()
+                || !player.hasPermission("bankranking.admin")
+                || !this.hingewiesen.add(player.getUniqueId())) {
+            return;
+        }
+        PackStatus.Delivery zustand = this.delivery;
+        if (!zustand.istProblem() && !hashKonflikt()) {
+            return;
+        }
+        this.plugin.send(player, Messages.PACK_HINWEIS_ADMIN);
+        this.plugin.send(player, Messages.text(zustand));
+        this.plugin.send(player, hashKonflikt()
+                ? Messages.PACK_HASH_KONFLIKT
+                : Messages.schritt(zustand));
+    }
+
+    void sendNow(Player player) {
+        this.loaded.remove(player.getUniqueId());
+        this.pending.remove(player.getUniqueId());
+        this.answer.remove(player.getUniqueId());
+        send(player, this.url);
+    }
+
+    /** Wie weit das Pack bei diesem Spieler gekommen ist. */
+    PackStatus.Reach reachOf(UUID id) {
+        return PackStatus.reachOf(this.offered.contains(id), this.pending.contains(id),
+                this.answer.get(id), this.retried.contains(id));
     }
 
     /** Wie viele Spieler das Pack gerade geladen haben. */
@@ -449,11 +627,22 @@ public final class ResourcePacks implements Listener {
     }
 
     String sha1() {
-        return this.file.sha1();
+        ResourcePackInfo anfrage = this.info;
+        return anfrage != null ? anfrage.hash() : this.file == null ? "" : this.file.sha1();
+    }
+
+    /** Wie ausgeliefert wird - oder warum nicht. */
+    PackStatus.Delivery delivery() {
+        return this.delivery;
+    }
+
+    /** Liegen eigene Dateien vor, waehrend von fremder Adresse ausgeliefert wird? */
+    boolean hashKonflikt() {
+        return this.delivery == PackStatus.Delivery.FREMDE_ADRESSE && !replaced().isEmpty();
     }
 
     List<String> replaced() {
-        return this.file.replaced();
+        return this.file == null ? List.of() : this.file.replaced();
     }
 
     void stop() {
@@ -464,7 +653,10 @@ public final class ResourcePacks implements Listener {
         this.retried.clear();
         this.configured.clear();
         this.failed.clear();
-        this.answered.clear();
+        this.hingewiesen.clear();
+        this.offered.clear();
+        this.pending.clear();
+        this.answer.clear();
     }
 
     /** Nur der Endzustand zaehlt - Zwischenstaende wuerden zu frueh umschalten. */
@@ -484,18 +676,11 @@ public final class ResourcePacks implements Listener {
         if (!PACK_ID.equals(event.getID())) {
             return;
         }
-        UUID id = event.getPlayer().getUniqueId();
-        if (isActive(event.getStatus())) {
-            this.loaded.add(id);
-            return;
-        }
-        if (isIntermediate(event.getStatus())) {
-            return;
-        }
-        this.loaded.remove(id);
-        if (isReachabilityProblem(event.getStatus())) {
-            handleFailure(id, event.getPlayer().getName(), event.getPlayer());
-        }
+        // Genau dieselbe Buchfuehrung wie der Adventure-Rueckruf. Zwei getrennte Zaehlwege
+        // fuer denselben Vorgang waren der Grund, warum der Zustand je nach Blickwinkel
+        // anders aussah.
+        record(event.getPlayer().getUniqueId(), event.getPlayer().getName(),
+                PackStatus.of(event.getStatus()), event.getPlayer());
     }
 
     /** Lag es an der Erreichbarkeit - oder hat der Spieler schlicht abgelehnt? */
@@ -540,18 +725,17 @@ public final class ResourcePacks implements Listener {
         this.loaded.remove(event.getPlayer().getUniqueId());
         this.retried.remove(event.getPlayer().getUniqueId());
         this.configured.remove(event.getPlayer().getUniqueId());
-        this.answered.remove(event.getPlayer().getUniqueId());
+        this.hingewiesen.remove(event.getPlayer().getUniqueId());
+        this.offered.remove(event.getPlayer().getUniqueId());
+        this.pending.remove(event.getPlayer().getUniqueId());
+        this.answer.remove(event.getPlayer().getUniqueId());
     }
 
     /** Der Zustand je Spieler, fuer die Verwaltung. */
     java.util.Map<String, String> status() {
         java.util.Map<String, String> zeilen = new java.util.LinkedHashMap<>();
         for (Player player : this.plugin.getServer().getOnlinePlayers()) {
-            zeilen.put(player.getName(), this.loaded.contains(player.getUniqueId())
-                    ? "geladen"
-                    : this.retried.contains(player.getUniqueId())
-                            ? "Download gescheitert, ueber die oeffentliche Adresse nachgereicht"
-                            : "kein Pack");
+            zeilen.put(player.getName(), Messages.text(reachOf(player.getUniqueId())));
         }
         return zeilen;
     }

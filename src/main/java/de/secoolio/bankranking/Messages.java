@@ -466,9 +466,80 @@ public final class Messages {
 
     // ----- Resourcepack -----
 
-    public static final String PACK_AUS =
-            "<yellow>Das Resourcepack ist abgeschaltet oder konnte nicht bereitgestellt werden. "
-                    + "Alle sehen die Sparfassung. Details im Server-Log.";
+    /**
+     * Die Texte je Auslieferungszustand.
+     *
+     * <p>Frueher stand hier ein einziger Satz fuer alle Faelle, der mit "Details im Server-Log"
+     * endete. Genau dorthin kann der Betreiber im Zweifel nicht sehen - und "abgeschaltet"
+     * und "konnte nicht bereitgestellt werden" verlangen voellig verschiedene Handgriffe.
+     */
+    public static final String PACK_ZUSTAND_EIGENER_SERVER =
+            "<green>Wird vom eingebauten Webserver ausgeliefert.";
+    public static final String PACK_ZUSTAND_FREMDE_ADRESSE =
+            "<green>Wird von der in der config.yml eingetragenen Adresse ausgeliefert.";
+    public static final String PACK_ZUSTAND_RUECKFALL_PORT =
+            "<yellow>Der eingebaute Webserver konnte den Port nicht belegen; es geht über die "
+                    + "öffentliche Ablage.";
+    public static final String PACK_ZUSTAND_RUECKFALL_ADRESSE =
+            "<yellow>Es ließ sich keine von außen erreichbare Adresse ermitteln; es geht über "
+                    + "die öffentliche Ablage.";
+    public static final String PACK_ZUSTAND_RUECKFALL_BAUFEHLER =
+            "<yellow>Das Pack ließ sich hier nicht bauen; es geht über die öffentliche Ablage.";
+    public static final String PACK_ZUSTAND_KEIN_PACK =
+            "<red>Es wird gar kein Pack ausgeliefert. Alle sehen die Sparfassung.";
+    public static final String PACK_ZUSTAND_ABGESCHALTET =
+            "<gray>In der config.yml abgeschaltet <dark_gray>(resourcepack.aktiv: false)</dark_gray>.";
+
+    /** Was der Betreiber als Nächstes tun soll - nur bei Problemzuständen. */
+    public static final String PACK_SCHRITT_RUECKFALL_PORT =
+            "<gray>Nächster Schritt: einen freien Port unter <white>resourcepack.port</white> "
+                    + "eintragen, oder es dabei belassen - die Ablage funktioniert.";
+    public static final String PACK_SCHRITT_RUECKFALL_ADRESSE =
+            "<gray>Nächster Schritt: die erreichbare Adresse des Servers unter "
+                    + "<white>resourcepack.adresse</white> eintragen.";
+    public static final String PACK_SCHRITT_RUECKFALL_BAUFEHLER =
+            "<gray>Nächster Schritt: das Server-Log nach <white>Resourcepack</white> "
+                    + "durchsuchen - meist fehlen Schreibrechte im Plugin-Ordner.";
+    public static final String PACK_SCHRITT_KEIN_PACK =
+            "<gray>Nächster Schritt: <white>/bankranking pack test</white> ausführen.";
+
+    /** Die Texte je Spieler-Zustand. */
+    public static final String PACK_REICH_GELADEN = "geladen";
+    public static final String PACK_REICH_UNTERWEGS = "lädt gerade";
+    public static final String PACK_REICH_ANGEBOT_LAEUFT = "Anfrage raus, noch keine Antwort";
+    public static final String PACK_REICH_NIE_GESCHICKT = "nie geschickt";
+    public static final String PACK_REICH_ABGELEHNT = "abgelehnt";
+    public static final String PACK_REICH_DOWNLOAD_GESCHEITERT = "Download gescheitert";
+    public static final String PACK_REICH_NACHGEREICHT =
+            "Download gescheitert, über die öffentliche Ablage nachgereicht";
+
+    /** <dateien>. */
+    public static final String PACK_EIGENE_DATEIEN =
+            "<gray>Eigene Dateien aus pack-eigene: <white><dateien>";
+    public static final String PACK_HASH_KONFLIKT =
+            "<red>Achtung: eigene Dateien in pack-eigene und zugleich eine fremde Adresse. "
+                    + "Der angekündigte Hash gehört dann zum hier gebauten Pack, ausgeliefert "
+                    + "wird aber das fremde - jeder Client verwirft es. Die eigenen Dateien "
+                    + "entfernen oder auf den eingebauten Webserver zurückgehen.";
+    /** <name>. */
+    public static final String PACK_SPIELER_WEG =
+            "<yellow><name> ist gerade nicht online.";
+    public static final String PACK_HINWEIS_ADMIN =
+            "<gold>[Bank] Mit der Auslieferung des Resourcepacks stimmt etwas nicht:";
+    public static final String PACK_TEST_LAEUFT =
+            "<gray>Hole das Pack von der eingetragenen Adresse ...";
+    /** <text>. */
+    public static final String PACK_TEST_GUT = "<green>Selbsttest bestanden: <white><text>";
+    /** <text>. */
+    public static final String PACK_TEST_SCHLECHT =
+            "<red>Selbsttest fehlgeschlagen: <white><text>";
+    /** <name>. */
+    public static final String PACK_GESENDET =
+            "<gray>Anfrage an <white><name></white> raus. Das Ergebnis kommt in fünf Sekunden.";
+
+    /** <geladen>, <gesamt>. */
+    public static final String PACK_ZAEHLER =
+            "<gray>Geladen bei <white><geladen></white> von <white><gesamt></white> Spielern.";
     /** <adresse>. */
     public static final String PACK_ADRESSE = "<gray>Adresse: <white><adresse>";
     /** <hash>. */
@@ -523,5 +594,42 @@ public final class Messages {
     /** MiniMessage-Text in eine Komponente wandeln (ohne den kursiven Item-Standard). */
     public static Component mm(String text, TagResolver... resolvers) {
         return MiniMessage.miniMessage().deserialize(text, resolvers).decoration(TextDecoration.ITALIC, false);
+    }
+
+    /** Der Text zu einem Auslieferungszustand. */
+    public static String text(PackStatus.Delivery zustand) {
+        return switch (zustand) {
+            case EIGENER_SERVER -> PACK_ZUSTAND_EIGENER_SERVER;
+            case FREMDE_ADRESSE -> PACK_ZUSTAND_FREMDE_ADRESSE;
+            case RUECKFALL_PORT -> PACK_ZUSTAND_RUECKFALL_PORT;
+            case RUECKFALL_ADRESSE -> PACK_ZUSTAND_RUECKFALL_ADRESSE;
+            case RUECKFALL_BAUFEHLER -> PACK_ZUSTAND_RUECKFALL_BAUFEHLER;
+            case KEIN_PACK -> PACK_ZUSTAND_KEIN_PACK;
+            case ABGESCHALTET -> PACK_ZUSTAND_ABGESCHALTET;
+        };
+    }
+
+    /** Was der Betreiber tun soll - leer, wenn nichts zu tun ist. */
+    public static String schritt(PackStatus.Delivery zustand) {
+        return switch (zustand) {
+            case RUECKFALL_PORT -> PACK_SCHRITT_RUECKFALL_PORT;
+            case RUECKFALL_ADRESSE -> PACK_SCHRITT_RUECKFALL_ADRESSE;
+            case RUECKFALL_BAUFEHLER -> PACK_SCHRITT_RUECKFALL_BAUFEHLER;
+            case KEIN_PACK -> PACK_SCHRITT_KEIN_PACK;
+            default -> "";
+        };
+    }
+
+    /** Der Text zum Zustand eines einzelnen Spielers. */
+    public static String text(PackStatus.Reach reichweite) {
+        return switch (reichweite) {
+            case GELADEN -> PACK_REICH_GELADEN;
+            case UNTERWEGS -> PACK_REICH_UNTERWEGS;
+            case ANGEBOT_LAEUFT -> PACK_REICH_ANGEBOT_LAEUFT;
+            case NIE_GESCHICKT -> PACK_REICH_NIE_GESCHICKT;
+            case ABGELEHNT -> PACK_REICH_ABGELEHNT;
+            case DOWNLOAD_GESCHEITERT -> PACK_REICH_DOWNLOAD_GESCHEITERT;
+            case NACHGEREICHT -> PACK_REICH_NACHGEREICHT;
+        };
     }
 }

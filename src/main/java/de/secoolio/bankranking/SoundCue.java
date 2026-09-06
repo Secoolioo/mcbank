@@ -21,25 +21,25 @@ import org.bukkit.SoundCategory;
 enum SoundCue {
 
     /** Blechhorn zur Plakat-Einblendung. */
-    PLAKAT("kopfgeld.plakat", SoundCategory.MASTER, 1.0f, 1.0f,
+    PLAKAT(SoundNames.PLAKAT, SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.ITEM_GOAT_HORN_SOUND_0, 0.7f, 0.8f, 0L),
             new Note(Sound.BLOCK_NOTE_BLOCK_BASEDRUM, 0.5f, 0.55f, 0L)),
 
     /** Der Nagel, mit dem das Plakat angeschlagen wird. */
-    NAGEL("kopfgeld.nagel", SoundCategory.MASTER, 0.9f, 1.0f,
+    NAGEL(SoundNames.NAGEL, SoundCategory.MASTER, 0.9f, 1.0f,
             new Note(Sound.BLOCK_ANVIL_LAND, 0.35f, 1.9f, 0L)),
 
     /** Klapperschlange - hoert nur der Gejagte. */
-    GEJAGT("kopfgeld.gejagt", SoundCategory.MASTER, 1.0f, 1.0f,
+    GEJAGT(SoundNames.GEJAGT, SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.BLOCK_SCULK_SHRIEKER_SHRIEK, 0.6f, 0.9f, 0L)),
 
     /** Trockener Schuss in der Naehe. */
-    SCHUSS("kopfgeld.schuss", SoundCategory.MASTER, 1.0f, 1.0f,
+    SCHUSS(SoundNames.SCHUSS, SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0f, 1.7f, 0L),
             new Note(Sound.BLOCK_NOTE_BLOCK_BASEDRUM, 0.5f, 0.6f, 0L)),
 
     /** Derselbe Schuss aus der Ferne, nur die Rueckwuerfe. */
-    SCHUSS_FERN("kopfgeld.schuss_fern", SoundCategory.MASTER, 0.8f, 1.0f,
+    SCHUSS_FERN(SoundNames.SCHUSS_FERN, SoundCategory.MASTER, 0.8f, 1.0f,
             new Note(Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST_FAR, 0.7f, 0.8f, 0L)),
 
     /**
@@ -50,30 +50,30 @@ enum SoundCue {
      * Fis4, und D5, B4 und F4 - der absteigende B-Dur-Dreiklang, der klassische Western-
      * Abgang - liegen acht, vier und minus einen Halbton davon entfernt.
      */
-    MUNDHARMONIKA("kopfgeld.mundharmonika", SoundCategory.MASTER, 1.0f, 1.0f,
+    MUNDHARMONIKA(SoundNames.MUNDHARMONIKA, SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.BLOCK_NOTE_BLOCK_FLUTE, 0.8f, 1.5874f, 0L),
             new Note(Sound.BLOCK_NOTE_BLOCK_FLUTE, 0.8f, 1.2599f, 5L),
             new Note(Sound.BLOCK_NOTE_BLOCK_FLUTE, 0.8f, 0.9439f, 10L)),
 
     /** Muenzklimpern an der Beutekiste. */
-    MUENZEN("kopfgeld.muenzen", SoundCategory.MASTER, 1.0f, 1.0f,
+    MUENZEN(SoundNames.MUENZEN, SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.6f, 1.5f, 0L),
             new Note(Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.45f, 1.8f, 3L)),
 
     /** Revolverhahn beim Auswaehlen im Fenster. */
-    HAHN("kopfgeld.hahn", SoundCategory.MASTER, 1.0f, 1.0f,
+    HAHN(SoundNames.HAHN, SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.ITEM_CROSSBOW_LOADING_END, 0.6f, 1.4f, 0L)),
 
     /** Sporen beim Blaettern. */
-    SPOREN("kopfgeld.sporen", SoundCategory.MASTER, 1.0f, 1.0f,
+    SPOREN(SoundNames.SPOREN, SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.BLOCK_CHAIN_HIT, 0.5f, 1.7f, 0L)),
 
     /** Die Beutekiste loest sich auf. */
-    KISTE_WEG("kopfgeld.kiste_weg", SoundCategory.MASTER, 1.0f, 1.0f,
+    KISTE_WEG(SoundNames.KISTE_WEG, SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.BLOCK_BARREL_CLOSE, 0.6f, 0.8f, 0L)),
 
     /** Blechhorn, wenn ein Kopfgeld kassiert wurde - das hoert der ganze Server. */
-    FANFARE("kopfgeld.fanfare", SoundCategory.MASTER, 0.85f, 1.0f,
+    FANFARE(SoundNames.FANFARE, SoundCategory.MASTER, 0.85f, 1.0f,
             new Note(Sound.ITEM_GOAT_HORN_SOUND_1, 0.7f, 0.9f, 0L),
             new Note(Sound.BLOCK_NOTE_BLOCK_BASEDRUM, 0.45f, 0.6f, 0L));
 

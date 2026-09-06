@@ -73,8 +73,12 @@ final class WantedShow {
         String amount = this.plugin.bounties().reward(pot);
         Settings settings = this.plugin.settings();
         long jetzt = System.currentTimeMillis();
-        boolean zeigen = settings.bountyPoster()
-                && jetzt - this.lastShown >= settings.bountyPosterGap();
+        // Zwei getrennte Entscheidungen, die frueher eine waren. Die Sperrfrist ist gegen
+        // Plakat-Spam gedacht, nicht dagegen, dass ein Kopfgeld ueberhaupt zu sehen ist:
+        // innerhalb der Frist gab es bisher gar keinen Bildschirmtext, auch nicht die
+        // Sparfassung. Ein kurzer Text richtet aber weit weniger an als eine Vollbildgrafik.
+        boolean titel = settings.bountyPoster();
+        boolean zeigen = titel && jetzt - this.lastShown >= settings.bountyPosterGap();
         if (zeigen) {
             this.lastShown = jetzt;
         }
@@ -89,8 +93,8 @@ final class WantedShow {
 
         for (Player zuschauer : this.plugin.getServer().getOnlinePlayers()) {
             chat.forEach(zuschauer::sendMessage);
-            if (zeigen) {
-                boolean mitPack = this.plugin.hasPack(zuschauer);
+            if (titel) {
+                boolean mitPack = this.plugin.hasPack(zuschauer) && zeigen;
                 if (mitPack && plakat != null) {
                     // Das Plakat traegt bereits Name und Belohnung; der Untertitel bliebe sonst
                     // mitten im Gesicht stehen, weil Vanilla ihn fest auf halber Hoehe zeichnet.
@@ -99,11 +103,11 @@ final class WantedShow {
                     zuschauer.showTitle(Title.title(titelSpar, unterSpar, TIMES));
                 }
             }
-            // Der Klang haengt ausdruecklich NICHT an der Plakat-Sperre. Im ersten Entwurf tat
-            // er das, und dadurch war jedes zweite Kopfgeld innerhalb der Sperrfrist voellig
-            // stumm - genau das Bild von "der Sound fehlt". Kommt das Plakat nicht, gibt es
-            // wenigstens den Nagel: kurz, leise, aber unueberhoerbar.
-            this.plugin.effects().cue(zuschauer, zeigen ? SoundCue.PLAKAT : SoundCue.NAGEL);
+            // Der Einschlag kommt bei JEDEM Kopfgeld und bei JEDEM Spieler - ausdrueckliche
+            // Vorgabe des Betreibers, und es ist seine eigene Klangdatei. Frueher stand hier
+            // "zeigen ? PLAKAT : NAGEL", womit ein zweites Kopfgeld innerhalb der Sperrfrist
+            // nur einen kurzen Nagel bekam. Genau das war das Bild von "der Sound fehlt".
+            this.plugin.effects().cue(zuschauer, SoundCue.PLAKAT);
         }
         if (zeigen) {
             // Der Nagel faellt in die Einblendung: das Plakat bekommt damit einen Anschlag,

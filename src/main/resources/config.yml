@@ -98,6 +98,11 @@ resourcepack:
   # (etwa bei mehreren Netzwerkkarten) - oder eine komplette URL auf eine fremde Ablage,
   # dann wird der eingebaute Webserver gar nicht erst gestartet.
   adresse: ""
+  # Sollen Administratoren beim Beitritt eine Zeile im Chat bekommen, wenn mit der
+  # Auslieferung etwas nicht stimmt? Ohne diesen Hinweis steht die Ursache nur im Server-Log,
+  # und dorthin sieht im Zweifel niemand - genau daran ist die Auslieferung schon einmal
+  # tagelang unbemerkt gescheitert. Gewoehnliche Spieler sehen davon nie etwas.
+  hinweis: true
   # Text, den der Client im Abfragefenster anzeigt (MiniMessage-Format).
   aufforderung: "<gold>Fuer die Kopfgeld-Steckbriefe braucht dieser Server ein Resourcepack."
 

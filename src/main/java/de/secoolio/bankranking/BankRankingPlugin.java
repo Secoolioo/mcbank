@@ -58,14 +58,14 @@ public final class BankRankingPlugin extends JavaPlugin {
         this.lootBoxes = new LootBoxes(this);
 
         // Das Resourcepack ist Beiwerk: scheitert es, laeuft die Bank unveraendert weiter und
-        // das Kopfgeld zeigt spaeter die Sparfassung.
+        // das Kopfgeld zeigt die Sparfassung. Es gibt aber immer ein Objekt - ein fehlendes
+        // war frueher die eine Stelle, an der ein Startproblem in dauerhaftes Schweigen fuer
+        // jeden Spieler umschlug, waehrend die Ursache nur einmal beim Start im Log stand.
         this.packs = ResourcePacks.start(this);
 
         getServer().getPluginManager().registerEvents(new BankListener(this), this);
         getServer().getPluginManager().registerEvents(this.lootBoxes, this);
-        if (this.packs != null) {
-            getServer().getPluginManager().registerEvents(this.packs, this);
-        }
+        getServer().getPluginManager().registerEvents(this.packs, this);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
                 event -> {
                     BankCommands.register(this, event.registrar());
@@ -80,13 +80,21 @@ public final class BankRankingPlugin extends JavaPlugin {
             }
             this.lootBoxes.restoreAll();
         });
-        if (this.packs != null) {
+        if (this.packs.delivery() != PackStatus.Delivery.ABGESCHALTET) {
             // Der Selbsttest holt das Pack ueber die eigene Adresse ab. Er laeuft neben dem
             // Serverpuls, weil er auf das Netz wartet, und beantwortet vor dem ersten Spieler
             // die Frage, ob die Adresse ueberhaupt erreichbar ist.
             getServer().getScheduler().runTaskAsynchronously(this, () -> {
-                if (this.packs.selfTest()) {
-                    getLogger().info("Selbsttest des Resourcepacks bestanden");
+                ResourcePacks.SelfTest ergebnis = this.packs.selfTest();
+                if (ergebnis.ok()) {
+                    getLogger().info("Selbsttest des Resourcepacks bestanden: "
+                            + ergebnis.text());
+                } else {
+                    // Der Selbsttest geht nur an den Server selbst. Er beweist also nie, dass
+                    // ein Mitspieler durchkommt - aber wenn schon er scheitert, kommt sicher
+                    // niemand durch, und das gehoert deutlich ins Log.
+                    getLogger().warning("Selbsttest des Resourcepacks fehlgeschlagen: "
+                            + ergebnis.text());
                 }
                 getServer().getScheduler().runTask(this, () -> {
                     for (Player player : getServer().getOnlinePlayers()) {
@@ -145,6 +153,7 @@ public final class BankRankingPlugin extends JavaPlugin {
         if (this.packs != null) {
             this.packs.stop();
         }
+
     }
 
     /**
@@ -231,7 +240,7 @@ public final class BankRankingPlugin extends JavaPlugin {
 
     /** Hat dieser Spieler das Resourcepack geladen? Ohne Pack gilt die Sparfassung. */
     public boolean hasPack(Player player) {
-        return this.packs != null && this.packs.has(player);
+        return this.packs.has(player);
     }
 
     public BountyService bounties() {

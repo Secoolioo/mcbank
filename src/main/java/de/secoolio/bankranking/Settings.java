@@ -72,7 +72,8 @@ public final class Settings {
     }
 
     /** Die Werte rund um das Resourcepack, gebuendelt statt als weiterer Einzelparameter. */
-    private record Pack(boolean enabled, int port, String address, String prompt) {
+    private record Pack(boolean enabled, int port, String address, String prompt,
+                        boolean hint) {
     }
 
     /** Die Zahlenwerte beider Bremsen, gebuendelt statt als Index-Array. */
@@ -108,6 +109,7 @@ public final class Settings {
     private final String barSymbol;
     private final int barLength;
     private final boolean packEnabled;
+    private final boolean packHint;
     private final int packPort;
     private final String packAddress;
     private final String packPrompt;
@@ -167,6 +169,7 @@ public final class Settings {
         this.barSymbol = barSymbol;
         this.barLength = barLength;
         this.packEnabled = pack.enabled();
+        this.packHint = pack.hint();
         this.packPort = pack.port();
         this.packAddress = pack.address();
         this.packPrompt = pack.prompt();
@@ -275,7 +278,8 @@ public final class Settings {
                 readFlag(c, "resourcepack.aktiv", true, log),
                 readPort(c, "resourcepack.port", DEFAULT_PACK_PORT, log),
                 readText(c, "resourcepack.adresse", "").trim(),
-                readMiniMessage(c, "resourcepack.aufforderung", DEFAULT_PACK_PROMPT, log));
+                readMiniMessage(c, "resourcepack.aufforderung", DEFAULT_PACK_PROMPT, log),
+                readFlag(c, "resourcepack.hinweis", true, log));
 
         BountyConfig bounty = new BountyConfig(
                 readFlag(c, "kopfgeld.aktiv", true, log),
@@ -545,6 +549,11 @@ public final class Settings {
     }
 
     /** Einzeilige Zusammenfassung fuer das Server-Log beim Laden. */
+    /** Sollen Administratoren beim Beitritt auf Probleme mit dem Pack hingewiesen werden? */
+    public boolean packHint() {
+        return this.packHint;
+    }
+
     public boolean packEnabled() {
         return this.packEnabled;
     }

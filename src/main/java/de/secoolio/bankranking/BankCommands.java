@@ -101,7 +101,13 @@ public final class BankCommands {
                 }))
                 .then(Commands.literal("wert").executes(ctx -> value(plugin, ctx)))
                 .then(Commands.literal("sidebar").executes(ctx -> sidebar(plugin, ctx)))
-                .then(Commands.literal("pack").executes(ctx -> pack(plugin, ctx)))
+                .then(Commands.literal("pack")
+                        .then(Commands.literal("test").executes(ctx -> packTest(plugin, ctx)))
+                        .then(Commands.literal("senden")
+                                .then(Commands.argument("spieler", StringArgumentType.word())
+                                        .executes(ctx -> packSenden(plugin, ctx,
+                                                StringArgumentType.getString(ctx, "spieler")))))
+                        .executes(ctx -> pack(plugin, ctx)))
                 .build(), "Verwaltung des Bank-Plugins");
     }
 
@@ -115,26 +121,82 @@ public final class BankCommands {
     private static int pack(BankRankingPlugin plugin, CommandContext<CommandSourceStack> ctx) {
         CommandSender sender = ctx.getSource().getSender();
         ResourcePacks packs = plugin.packs();
-        if (packs == null) {
-            plugin.send(sender, Messages.PACK_AUS);
+        PackStatus.Delivery zustand = packs.delivery();
+
+        plugin.send(sender, Messages.text(zustand));
+        if (zustand.istProblem()) {
+            plugin.send(sender, Messages.schritt(zustand));
+        }
+        if (zustand == PackStatus.Delivery.ABGESCHALTET) {
             return Command.SINGLE_SUCCESS;
         }
         plugin.send(sender, Messages.PACK_ADRESSE,
                 Placeholder.unparsed("adresse", packs.url()));
         plugin.send(sender, Messages.PACK_HASH,
                 Placeholder.unparsed("hash", packs.sha1()));
+        if (!packs.replaced().isEmpty()) {
+            plugin.send(sender, Messages.PACK_EIGENE_DATEIEN,
+                    Placeholder.unparsed("dateien", String.join(", ", packs.replaced())));
+        }
+        if (packs.hashKonflikt()) {
+            // Der Fehler, der die Auslieferung schon einmal vollstaendig lahmgelegt hat,
+            // ohne dass irgendwo etwas davon stand.
+            plugin.send(sender, Messages.PACK_HASH_KONFLIKT);
+        }
         if (!plugin.bounties().hasPoster()) {
             // Ohne Schriftmasse gibt es kein Plakat, nur die Sparfassung - das darf nicht
             // still bleiben, sonst sucht der Betreiber den Fehler beim Pack.
             plugin.send(sender, Messages.PACK_KEIN_PLAKAT);
         }
-        Map<String, String> zustand = packs.status();
-        if (zustand.isEmpty()) {
+        Map<String, String> spieler = packs.status();
+        if (spieler.isEmpty()) {
             plugin.send(sender, Messages.PACK_NIEMAND);
             return Command.SINGLE_SUCCESS;
         }
-        zustand.forEach((name, text) -> sender.sendMessage(Messages.mm(Messages.PACK_SPIELER,
+        plugin.send(sender, Messages.PACK_ZAEHLER,
+                Placeholder.unparsed("geladen", String.valueOf(packs.loadedCount())),
+                Placeholder.unparsed("gesamt", String.valueOf(spieler.size())));
+        spieler.forEach((name, text) -> sender.sendMessage(Messages.mm(Messages.PACK_SPIELER,
                 Placeholder.unparsed("name", name), Placeholder.unparsed("zustand", text))));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * Holt das Pack von der eigenen Adresse und meldet das Ergebnis im Chat.
+     *
+     * <p>Genau diese Auskunft fehlte, als das Pack bei niemandem ankam: sie stand nur im
+     * Server-Log, und dorthin sieht der Betreiber im Zweifel nicht.
+     */
+    private static int packTest(BankRankingPlugin plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        ResourcePacks packs = plugin.packs();
+        plugin.send(sender, Messages.PACK_TEST_LAEUFT);
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            ResourcePacks.SelfTest ergebnis = packs.selfTest();
+            plugin.getServer().getScheduler().runTask(plugin, () -> plugin.send(sender,
+                    ergebnis.ok() ? Messages.PACK_TEST_GUT : Messages.PACK_TEST_SCHLECHT,
+                    Placeholder.unparsed("text", ergebnis.text())));
+        });
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Erzwingt eine Anfrage an einen Spieler, damit sich die Kette im Spiel pruefen laesst. */
+    private static int packSenden(BankRankingPlugin plugin,
+                                  CommandContext<CommandSourceStack> ctx, String name) {
+        CommandSender sender = ctx.getSource().getSender();
+        Player ziel = plugin.getServer().getPlayerExact(name);
+        if (ziel == null) {
+            plugin.send(sender, Messages.PACK_SPIELER_WEG, Placeholder.unparsed("name", name));
+            return Command.SINGLE_SUCCESS;
+        }
+        ResourcePacks packs = plugin.packs();
+        packs.sendNow(ziel);
+        plugin.send(sender, Messages.PACK_GESENDET, Placeholder.unparsed("name", ziel.getName()));
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> plugin.send(sender,
+                Messages.PACK_SPIELER,
+                Placeholder.unparsed("name", ziel.getName()),
+                Placeholder.unparsed("zustand", Messages.text(packs.reachOf(ziel.getUniqueId())))),
+                100L);
         return Command.SINGLE_SUCCESS;
     }
 

@@ -178,9 +178,13 @@ public final class BankListener implements Listener {
                 this.plugin.bounties().greet(event.getPlayer());
             }
         }, 40L);
-        if (this.plugin.packs() != null) {
-            this.plugin.packs().sendOnJoin(event.getPlayer());
-        }
+        this.plugin.packs().sendOnJoin(event.getPlayer());
+        // Etwas spaeter, damit die Zeile nicht im Beitritts-Getoese untergeht.
+        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+            if (event.getPlayer().isOnline()) {
+                this.plugin.packs().notifyAdmin(event.getPlayer());
+            }
+        }, 60L);
     }
 
     @EventHandler
