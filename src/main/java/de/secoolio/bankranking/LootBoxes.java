@@ -9,9 +9,6 @@ import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
@@ -46,7 +43,6 @@ public final class LootBoxes implements Listener {
 
     /** Wie weit vor dem Spieler die Kiste erscheint. */
     private static final double ABSTAND = 1.2;
-    private static final float DREHUNG_PRO_TICK = 2.0f;
 
     private final BankRankingPlugin plugin;
     private final NamespacedKey ownerKey;
@@ -81,8 +77,7 @@ public final class LootBoxes implements Listener {
                 vorne.getWorld().getName(), vorne.getX(), vorne.getY(), vorne.getZ());
         place(owner.getUniqueId(), vorne);
 
-        vorne.getWorld().spawnParticle(Particle.END_ROD, vorne, 25, 0.3, 0.4, 0.3, 0.02);
-        owner.playSound(vorne, Sound.BLOCK_AMETHYST_BLOCK_CHIME, SoundCategory.MASTER, 0.7f, 1.4f);
+        this.plugin.effects().chestSpawned(vorne);
     }
 
     /** Stellt die beiden Entitaeten an eine Stelle. */
@@ -141,8 +136,7 @@ public final class LootBoxes implements Listener {
     public void dissolve(UUID owner, Location ort) {
         remove(owner);
         if (ort != null && ort.getWorld() != null) {
-            ort.getWorld().spawnParticle(Particle.SMOKE, ort, 20, 0.3, 0.3, 0.3, 0.01);
-            ort.getWorld().playSound(ort, Sound.BLOCK_BARREL_CLOSE, SoundCategory.MASTER, 0.6f, 0.8f);
+            this.plugin.effects().chestGone(ort);
         }
     }
 

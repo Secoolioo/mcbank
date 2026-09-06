@@ -7,8 +7,6 @@ import java.time.Duration;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.title.Title;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 
 /**
@@ -29,9 +27,6 @@ final class WantedShow {
     /** Einblenden, Stehen, Ausblenden - abgestimmt auf den Klang. */
     private static final Title.Times TIMES = Title.Times.times(
             Duration.ofMillis(250), Duration.ofMillis(2600), Duration.ofMillis(950));
-
-    /** Der eigene Klang des Packs. */
-    private static final String PACK_SOUND = "bankranking:kopfgeld.plakat";
 
     private final BankRankingPlugin plugin;
     private final PackWantedPoster poster;
@@ -102,7 +97,16 @@ final class WantedShow {
             } else {
                 zuschauer.showTitle(Title.title(titelSpar, unterSpar, TIMES));
             }
-            playSound(zuschauer, mitPack);
+            this.plugin.effects().cue(zuschauer, SoundCue.PLAKAT);
+        }
+        if (zeigen) {
+            // Der Nagel faellt in die Einblendung: das Plakat bekommt damit einen Anschlag,
+            // den die anschwellende Fanfare allein nicht hat.
+            this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+                for (Player zuschauer : this.plugin.getServer().getOnlinePlayers()) {
+                    this.plugin.effects().cue(zuschauer, SoundCue.NAGEL);
+                }
+            }, 6L);
         }
     }
 
@@ -119,20 +123,6 @@ final class WantedShow {
                 Placeholder.unparsed("wert", amount));
     }
 
-    private void playSound(Player zuschauer, boolean mitPack) {
-        // Am Ohr des Spielers statt in der Welt: die Ankuendigung gilt allen gleich, egal
-        // wo sie gerade stehen.
-        if (mitPack) {
-            zuschauer.playSound(zuschauer.getLocation(), PACK_SOUND, SoundCategory.RECORDS, 1.0f, 1.0f);
-            return;
-        }
-        // Vanilla-Ersatz: das Ziegenhorn kommt einem Westernhorn am naechsten, die Basstrommel
-        // gibt ihm den Anschlag.
-        zuschauer.playSound(zuschauer.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_0,
-                SoundCategory.RECORDS, 0.7f, 0.8f);
-        zuschauer.playSound(zuschauer.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASEDRUM,
-                SoundCategory.RECORDS, 0.5f, 0.55f);
-    }
 
     /** Nur fuer die Verwaltung: gibt es ueberhaupt ein Plakat? */
     boolean hasPoster() {

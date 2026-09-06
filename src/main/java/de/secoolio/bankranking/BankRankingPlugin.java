@@ -127,6 +127,9 @@ public final class BankRankingPlugin extends JavaPlugin {
         if (this.ranking != null) {
             this.ranking.shutdown();
         }
+        if (this.effects != null) {
+            this.effects.cancelAll();
+        }
         if (this.lootBoxes != null) {
             // Die Anzeige-Entitaeten sind nicht persistent, wuerden ein Neuladen des Plugins
             // aber als verwaiste Kisten ueberleben.
@@ -161,6 +164,7 @@ public final class BankRankingPlugin extends JavaPlugin {
         }
         // Erst alles zuruecksetzen, dann aus den frischen Daten neu setzen: sonst bliebe ein
         // Name rot, dessen Topf von Hand aus der Datei entfernt wurde.
+        this.effects.cancelAll();
         this.bounties.shutdown();
         this.lootBoxes.shutdown();
         for (Player player : getServer().getOnlinePlayers()) {

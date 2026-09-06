@@ -148,7 +148,7 @@ public final class BountyGui implements BankWindow {
 
         BountyTargets.Target ziel = this.slots.get(slot);
         if (ziel != null) {
-            BankWindows.click(player);
+            this.plugin.effects().bountyClick(player);
             this.plugin.windows().openLater(player,
                     new BountyStakeGui(this.plugin, ziel.id(), ziel.name()));
             return;
@@ -175,7 +175,7 @@ public final class BountyGui implements BankWindow {
         if (seite < 0 || seite >= this.pageCount) {
             return;
         }
-        BankWindows.click(player);
+        this.plugin.effects().bountyPage(player);
         this.plugin.windows().openLater(player, new BountyGui(this.plugin, player, seite));
     }
 }

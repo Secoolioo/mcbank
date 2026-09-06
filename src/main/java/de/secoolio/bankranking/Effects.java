@@ -21,10 +21,169 @@ public final class Effects {
     /** Ab so vielen Punkten gibt es Feuerwerk. */
     private static final double FIREWORK_FROM = 1000.0;
 
+    /** Bis hierhin gilt ein Schuss als nah; darueber hinaus hoert man nur das Echo. */
+    private static final double SCHUSS_NAH = 40.0;
+    /** So weit traegt das Echo. */
+    private static final double SCHUSS_FERN = 120.0;
+    /** So weit hoert man die Beutekiste. */
+    private static final double KISTE_HOERWEITE = 24.0;
+
     private final BankRankingPlugin plugin;
+    /** Die geplanten Schritte laufender Choreografien, damit sie abbrechbar sind. */
+    private final java.util.Set<org.bukkit.scheduler.BukkitTask> running = new java.util.HashSet<>();
 
     public Effects(BankRankingPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    // ------------------------------------------------------------------ Klang
+
+    /**
+     * Spielt einen Western-Klang fuer genau einen Spieler.
+     *
+     * <p>Hat er das Resourcepack, kommt der eigene Klang; sonst der Vanilla-Ersatz, notfalls
+     * als Folge mehrerer Toene. Die Aufrufstellen wissen davon nichts.
+     */
+    public void cue(Player player, Location at, SoundCue cue) {
+        if (!this.plugin.settings().bountyEnabled()) {
+            return;
+        }
+        if (this.plugin.hasPack(player)) {
+            player.playSound(at, cue.key(), cue.category(), cue.volume(), cue.pitch());
+            return;
+        }
+        for (SoundCue.Note note : cue.fallback()) {
+            if (note.delayTicks() == 0L) {
+                player.playSound(at, note.sound(), cue.category(), note.volume(), note.pitch());
+            } else {
+                later(note.delayTicks(), () -> {
+                    if (player.isOnline()) {
+                        player.playSound(at, note.sound(), cue.category(),
+                                note.volume(), note.pitch());
+                    }
+                });
+            }
+        }
+    }
+
+    /** Derselbe Klang am Ohr des Spielers. */
+    public void cue(Player player, SoundCue cue) {
+        cue(player, player.getLocation(), cue);
+    }
+
+    /**
+     * Spielt einen Klang fuer alle in einem Umkreis.
+     *
+     * <p>Die Empfaengerliste wird hier berechnet und nicht dem Client ueberlassen: die
+     * Reichweite im Resourcepack gilt nur fuer Spieler mit Pack, und dann hoerten zwei
+     * Spieler nebeneinander unterschiedlich weit.
+     */
+    public void cueNearby(Location at, double radius, SoundCue cue) {
+        if (at.getWorld() == null) {
+            return;
+        }
+        for (Player player : at.getWorld().getNearbyPlayers(at, radius)) {
+            cue(player, at, cue);
+        }
+    }
+
+    /**
+     * Plant einen Schritt und merkt sich seinen Griff.
+     *
+     * <p>Beim Herunterfahren ist der Zeitplaner gesperrt. Anders als beim Fortschrittsbalken
+     * gibt es hier keinen Sofortweg - eine Fanfare beim Abschalten des Plugins nuetzt
+     * niemandem, sie entfaellt.
+     */
+    private void later(long delayTicks, Runnable step) {
+        if (!this.plugin.isEnabled()) {
+            return;
+        }
+        this.running.add(this.plugin.getServer().getScheduler()
+                .runTaskLater(this.plugin, step, delayTicks));
+    }
+
+    // --------------------------------------------------------------- Kopfgeld
+
+    /**
+     * Der Gejagte erfaehrt sein Schicksal - und zwar anders als alle anderen.
+     *
+     * <p>Ohne das lieste er es aus derselben Chatzeile wie der Rest. Er soll sich gejagt
+     * fuehlen, nicht darueber informiert werden.
+     */
+    public void hunted(Player hunted) {
+        cue(hunted, SoundCue.GEJAGT);
+        if (this.plugin.settings().effectParticles()) {
+            Location at = hunted.getLocation().add(0.0, 1.1, 0.0);
+            hunted.getWorld().spawnParticle(Particle.FLASH, at, 1);
+            hunted.getWorld().spawnParticle(Particle.SMOKE, at, 30, 0.8, 0.5, 0.8, 0.01);
+        }
+    }
+
+    /**
+     * Der Gejagte ist gefallen.
+     *
+     * <p>Der Schuss und sein Echo erreichen niemals denselben Spieler: wer nah dran ist, hoert
+     * den trockenen Knall, wer weiter weg steht, nur die Rueckwuerfe - und die zwei Zehntel
+     * spaeter, weil sich das als Entfernung liest.
+     */
+    public void bountyClaimed(Player killer, Player victim, Location deathAt) {
+        for (Player player : deathAt.getWorld().getNearbyPlayers(deathAt, SCHUSS_FERN)) {
+            double abstand = player.getLocation().distance(deathAt);
+            if (abstand <= SCHUSS_NAH) {
+                cue(player, deathAt, SoundCue.SCHUSS);
+            } else {
+                later(4L, () -> {
+                    if (player.isOnline()) {
+                        cue(player, player.getLocation(), SoundCue.SCHUSS_FERN);
+                    }
+                });
+            }
+        }
+        if (this.plugin.settings().effectParticles()) {
+            deathAt.getWorld().spawnParticle(Particle.FLASH, deathAt, 1);
+            deathAt.getWorld().spawnParticle(Particle.SMOKE, deathAt, 40, 0.6, 0.6, 0.6, 0.02);
+        }
+        // Die Mundharmonika kommt spaeter: sie ueberschneidet sich im Frequenzbereich mit dem
+        // Muenzklimpern der Auszahlung, und acht Ticks Abstand trennen die beiden hoerbar.
+        later(12L, () -> {
+            if (killer.isOnline()) {
+                cue(killer, SoundCue.MUNDHARMONIKA);
+            }
+        });
+    }
+
+    /** Die Beutekiste erscheint. */
+    public void chestSpawned(Location at) {
+        cueNearby(at, KISTE_HOERWEITE, SoundCue.MUENZEN);
+        if (this.plugin.settings().effectParticles() && at.getWorld() != null) {
+            at.getWorld().spawnParticle(Particle.END_ROD, at, 25, 0.3, 0.4, 0.3, 0.02);
+        }
+    }
+
+    /** Die Beutekiste verschwindet. */
+    public void chestGone(Location at) {
+        cueNearby(at, KISTE_HOERWEITE, SoundCue.KISTE_WEG);
+        if (this.plugin.settings().effectParticles() && at.getWorld() != null) {
+            at.getWorld().spawnParticle(Particle.SMOKE, at, 20, 0.3, 0.3, 0.3, 0.01);
+        }
+    }
+
+    /** Ein Klick im Kopfgeld-Fenster. */
+    public void bountyClick(Player player) {
+        cue(player, SoundCue.HAHN);
+    }
+
+    /** Blaettern im Kopfgeld-Fenster. */
+    public void bountyPage(Player player) {
+        cue(player, SoundCue.SPOREN);
+    }
+
+    /** Beim Herunterfahren und beim Neuladen: keine Choreografie laeuft weiter. */
+    public void cancelAll() {
+        for (org.bukkit.scheduler.BukkitTask task : this.running) {
+            task.cancel();
+        }
+        this.running.clear();
     }
 
     /** Nach einer erfolgreich gebuchten Einzahlung. */

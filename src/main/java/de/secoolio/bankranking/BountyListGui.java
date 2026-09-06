@@ -120,7 +120,7 @@ public final class BountyListGui implements BankWindow {
                 this.plugin.effects().deny(player);
                 return;
             }
-            BankWindows.click(player);
+            this.plugin.effects().bountyClick(player);
             this.plugin.windows().openLater(player,
                     new BountyStakeGui(this.plugin, pot.target(), pot.name()));
             return;

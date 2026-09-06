@@ -140,6 +140,7 @@ public final class BountyService {
         if (gejagter != null) {
             this.plugin.send(gejagter, Messages.KOPFGELD_AUF_DICH,
                     Placeholder.unparsed("wert", gesamt));
+            this.plugin.effects().hunted(gejagter);
         }
         if (this.plugin.settings().bountyBroadcast()) {
             this.plugin.getServer().broadcast(Messages.mm(Messages.PREFIX + Messages.KOPFGELD_BROADCAST,
@@ -228,6 +229,7 @@ public final class BountyService {
                     Placeholder.unparsed("name", victim.getName()),
                     Placeholder.unparsed("wert", betrag)));
         }
+        this.plugin.effects().bountyClaimed(killer, victim, victim.getLocation());
         refreshAll(victim.getUniqueId());
         deliver(killer);
     }
@@ -269,8 +271,7 @@ public final class BountyService {
         if (abgeholt > 0) {
             this.plugin.send(owner, Messages.BEUTE_ABGEHOLT,
                     Placeholder.unparsed("anzahl", String.valueOf(abgeholt)));
-            owner.playSound(owner.getLocation(), org.bukkit.Sound.BLOCK_AMETHYST_BLOCK_CHIME,
-                    org.bukkit.SoundCategory.MASTER, 0.6f, 1.5f);
+            this.plugin.effects().cue(owner, SoundCue.MUENZEN);
         }
         if (uebrig.isEmpty()) {
             // Leer: die Kiste loest sich auf.
