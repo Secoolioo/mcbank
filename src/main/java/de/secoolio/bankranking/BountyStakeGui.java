@@ -124,8 +124,17 @@ public final class BountyStakeGui implements BankWindow {
         }
         lore.add("");
         lore.add(Messages.KOPFGELD_EINSATZ_ERLAUBT);
+        // Der Mindesteinsatz gehoert hierher, nicht in eine Ablehnung hinterher: wer ihn
+        // vorher sieht, laeuft nicht erst in die Abweisung.
+        lore.add(Messages.KOPFGELD_EINSATZ_MINDEST
+                .replace("<mindest>", bounties.minStakeText()));
 
-        this.inventory.setItem(VALUE_SLOT, GuiItems.labelled(Material.GOLD_INGOT,
+        // Die Anzeige traegt das Material, das gerade den Ton angibt - so sieht man auf einen
+        // Blick, was im Fenster liegt, ohne die Beschriftung zu lesen.
+        Material sinnbild = BountyItems.headline(einsatz);
+        this.inventory.setItem(VALUE_SLOT, GuiItems.labelled(
+                abgelehnt > 0 ? Material.BARRIER
+                        : sinnbild != null ? sinnbild : Material.GOLD_INGOT,
                 Messages.KOPFGELD_EINSATZ_NAME
                         .replace("<anzahl>", String.valueOf(BountyItems.size(einsatz))),
                 lore));

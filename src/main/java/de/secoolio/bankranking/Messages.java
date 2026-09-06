@@ -360,6 +360,9 @@ public final class Messages {
     public static final String KOPFGELD_EINSATZ_LEER = "<gray>Noch nichts eingelegt.";
     public static final String KOPFGELD_EINSATZ_ERLAUBT =
             "<dark_gray>Erlaubt: Smaragde, Diamanten, Netherite (auch als Block)";
+    /** <mindest>. */
+    public static final String KOPFGELD_EINSATZ_MINDEST =
+            "<dark_gray>Mindestens: <gray><mindest>";
     /** <anzahl>. */
     public static final String KOPFGELD_EINSATZ_ABGELEHNT =
             "<red><anzahl> Stapel werden nicht angenommen";
@@ -469,10 +472,22 @@ public final class Messages {
     /** <name>, <wert>. */
     public static final String KOPFGELD_UNTERTITEL_TEXT =
             "<gold><name></gold> <dark_gray>\u2014</dark_gray> <yellow><wert></yellow>";
-    /** <name>, <wert>, <kopf> = das Gesicht. */
-    public static final String KOPFGELD_PLAKAT_CHAT =
-            "<dark_gray>\u2503</dark_gray> <kopf> <red><bold><name></bold></red> "
-                    + "<dark_gray>\u2014</dark_gray> <gold><wert></gold> <gray>tot oder lebendig";
+    /**
+     * Das Plakat im Chat, Zeile fuer Zeile.
+     *
+     * <p>Ein senkrechter Balken links statt eines geschlossenen Kastens: die Chatschrift ist
+     * nicht dicktengleich, ein rechter Rand saesse bei jedem Namen woanders.
+     *
+     * <p>Platzhalter: {@code <kopf>} das Gesicht, {@code <name>}, {@code <wert>},
+     * {@code <von>}.
+     */
+    public static final String[] KOPFGELD_PLAKAT_CHAT = {
+            "<dark_red>\u258c</dark_red> <dark_red><bold>\u2620 GESUCHT \u2620</bold></dark_red>",
+            "<dark_red>\u258c</dark_red> <kopf> <white><bold><name></bold></white>",
+            "<dark_red>\u258c</dark_red> <gold><wert></gold>",
+            "<dark_red>\u258c</dark_red> <gray>tot oder lebendig \u2014 ausgesetzt von "
+                    + "<white><von></white>",
+    };
     /** <wert>. */
     public static final String KOPFGELD_BOSSBAR =
             "<dark_red><bold>AUF DEINEN KOPF:</bold></dark_red> <gold><wert>";

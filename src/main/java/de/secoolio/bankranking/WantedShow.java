@@ -79,7 +79,7 @@ final class WantedShow {
             this.lastShown = jetzt;
         }
 
-        Component chat = chatLine(target, targetName, amount);
+        java.util.List<Component> chat = chatLines(target, targetName, amount, placer);
         Component titelSpar = Messages.mm(Messages.KOPFGELD_TITEL_TEXT);
         Component unterSpar = Messages.mm(Messages.KOPFGELD_UNTERTITEL_TEXT,
                 Placeholder.unparsed("name", targetName),
@@ -88,7 +88,7 @@ final class WantedShow {
                 ? null : this.poster.render(face, targetName, BountyItems.loot(pot.total()));
 
         for (Player zuschauer : this.plugin.getServer().getOnlinePlayers()) {
-            zuschauer.sendMessage(chat);
+            chat.forEach(zuschauer::sendMessage);
             if (!zeigen) {
                 continue;
             }
@@ -119,11 +119,19 @@ final class WantedShow {
      * <p>Der Tag {@code <head:...>} ist Vanilla und braucht kein Resourcepack - jeder sieht
      * hier also das richtige Gesicht, auch wer das Pack abgelehnt hat.
      */
-    private Component chatLine(java.util.UUID target, String targetName, String amount) {
+    private java.util.List<Component> chatLines(java.util.UUID target, String targetName,
+                                                String amount, String placer) {
+        // Das Gesicht kommt als Vanilla-Objekt: dafuer braucht es kein Resourcepack, jeder
+        // sieht es - auch wer das Pack abgelehnt hat.
         String kopf = "<head:'" + target + "'>";
-        return Messages.mm(Messages.PREFIX + Messages.KOPFGELD_PLAKAT_CHAT.replace("<kopf>", kopf),
-                Placeholder.unparsed("name", targetName),
-                Placeholder.unparsed("wert", amount));
+        java.util.List<Component> zeilen = new java.util.ArrayList<>();
+        for (String vorlage : Messages.KOPFGELD_PLAKAT_CHAT) {
+            zeilen.add(Messages.mm(vorlage.replace("<kopf>", kopf),
+                    Placeholder.unparsed("name", targetName),
+                    Placeholder.unparsed("wert", amount),
+                    Placeholder.unparsed("von", placer)));
+        }
+        return zeilen;
     }
 
 
