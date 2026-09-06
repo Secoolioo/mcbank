@@ -355,7 +355,8 @@ public final class Messages {
             "<dark_gray>Fenster schließen = alles zurück"
     };
     /** <anzahl>, <wert>. */
-    public static final String KOPFGELD_EINSATZ_NAME = "<white>Einsatz: <gold><anzahl> Items</gold>";
+    public static final String KOPFGELD_EINSATZ_NAME =
+            "<white>Dein Einsatz: <gold><anzahl> Stück</gold>";
     public static final String KOPFGELD_EINSATZ_WERT = "<gold><wert>";
     public static final String KOPFGELD_EINSATZ_LEER = "<gray>Noch nichts eingelegt.";
     public static final String KOPFGELD_EINSATZ_ERLAUBT =
@@ -457,6 +458,9 @@ public final class Messages {
             "<yellow>Dein Inventar ist voll - der Rest steht als Kiste vor dir. "
                     + "<white>/kopfgeld beute</white> holt sie von überall.";
     public static final String BEUTE_FREMD = "<red>Das ist nicht deine Beute.";
+    public static final String BEUTE_FEHLER =
+            "<red>Die Beute konnte nicht ausgetragen werden und bleibt liegen. "
+                    + "Versuch es gleich noch einmal - verloren geht nichts.";
     /** <anzahl>. */
     public static final String BEUTE_ABGEHOLT = "<green>Beute abgeholt: <white><anzahl></white> Items.";
 
@@ -470,6 +474,9 @@ public final class Messages {
     /** <hash>. */
     public static final String PACK_HASH = "<gray>SHA-1: <dark_gray><hash>";
     public static final String PACK_NIEMAND = "<gray>Gerade ist niemand online.";
+    public static final String PACK_KEIN_PLAKAT =
+            "<yellow>Achtung: die Schriftmaße des Plakats fehlen oder sind unbrauchbar. "
+                    + "Alle sehen die Sparfassung, auch mit Pack. Details im Server-Log.";
     /** <name>, <zustand>. */
     public static final String PACK_SPIELER =
             "<dark_gray>- <white><name></white> <dark_gray>-</dark_gray> <gray><zustand>";
@@ -477,6 +484,11 @@ public final class Messages {
     // ----- Kopfgeld: Bildschirm -----
 
     public static final String KOPFGELD_TITEL_TEXT = "<dark_red><bold>GESUCHT</bold></dark_red>";
+    public static final String KOPFGELD_TITEL_KASSIERT =
+            "<gold><bold>KOPFGELD KASSIERT</bold></gold>";
+    /** <name> = der Erlegte. */
+    public static final String KOPFGELD_UNTERTITEL_KASSIERT =
+            "<gray>Du hast <white><name></white> zur Strecke gebracht";
     /** Die Bestaetigung fuer den, der ausgesetzt hat. <name>, <wert>. */
     public static final String KOPFGELD_AKTIONSLEISTE =
             "<dark_red>☠</dark_red> <gold><wert></gold> <gray>auf <white><name></white>";

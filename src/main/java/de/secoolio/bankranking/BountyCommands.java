@@ -47,7 +47,7 @@ public final class BountyCommands {
                 .then(Commands.literal("liste").executes(ctx -> {
                     Player player = playerOf(plugin, ctx);
                     if (player != null) {
-                        plugin.windows().open(player, new BountyListGui(plugin));
+                        plugin.windows().open(player, new BountyListGui(plugin, player));
                     }
                     return Command.SINGLE_SUCCESS;
                 }))

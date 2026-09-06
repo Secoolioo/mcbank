@@ -31,11 +31,25 @@ public final class BountyListGui implements BankWindow {
     private final Inventory inventory;
     private final Map<Integer, Bounty> slots = new LinkedHashMap<>();
 
+    private final boolean mitBeute;
+
     public BountyListGui(BankRankingPlugin plugin) {
+        this(plugin, null);
+    }
+
+    public BountyListGui(BankRankingPlugin plugin, Player betrachter) {
         this.plugin = plugin;
+        BountyData.Claim beute = betrachter == null
+                ? null : plugin.bounties().data().claim(betrachter.getUniqueId());
+        this.mitBeute = beute != null && !beute.items().isEmpty();
         this.inventory = plugin.getServer().createInventory(this, SIZE,
                 Messages.mm(Messages.KOPFGELD_LISTE_TITEL));
         decorate();
+        if (this.mitBeute) {
+            this.inventory.setItem(LOOT_SLOT, GuiItems.glowing(Material.CHEST, Messages.BEUTE_NAME,
+                    List.of(Messages.BEUTE_LORE.replace("<anzahl>",
+                            String.valueOf(BountyItems.size(beute.items()))))));
+        }
     }
 
     private void decorate() {
@@ -71,6 +85,8 @@ public final class BountyListGui implements BankWindow {
 
         this.inventory.setItem(BACK_SLOT, GuiItems.labelled(Material.ARROW,
                 Messages.BUTTON_ZURUECK_NAME, List.of(Messages.BUTTON_ZURUECK_LORE)));
+        // Der Beute-Knopf war bisher unsichtbar: er lag auf einer Glasscheibe des Rahmens und
+        // oeffnete unerwartet ein Fenster. Jetzt steht er nur da, wenn es etwas abzuholen gibt.
         this.inventory.setItem(CLOSE_SLOT, GuiItems.labelled(Material.BARRIER,
                 Messages.BUTTON_SCHLIESSEN_NAME, List.of(Messages.BUTTON_SCHLIESSEN_LORE)));
     }
@@ -126,8 +142,10 @@ public final class BountyListGui implements BankWindow {
                 this.plugin.windows().openLater(player, new BountyGui(this.plugin, player, 0));
             }
             case LOOT_SLOT -> {
-                BankWindows.click(player);
-                this.plugin.windows().openLater(player, new LootGui(this.plugin, player));
+                if (this.mitBeute) {
+                    BankWindows.click(player);
+                    this.plugin.windows().openLater(player, new LootGui(this.plugin, player));
+                }
             }
             case CLOSE_SLOT -> this.plugin.windows().closeLater(player);
             default -> {

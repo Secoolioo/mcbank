@@ -102,8 +102,14 @@ public final class Effects {
         if (!this.plugin.isEnabled()) {
             return;
         }
-        this.running.add(this.plugin.getServer().getScheduler()
-                .runTaskLater(this.plugin, step, delayTicks));
+        // Der Griff wird nach dem Lauf wieder freigegeben, sonst waechst die Menge mit jedem
+        // Klang und niemand raeumt sie je auf.
+        org.bukkit.scheduler.BukkitTask[] griff = new org.bukkit.scheduler.BukkitTask[1];
+        griff[0] = this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+            this.running.remove(griff[0]);
+            step.run();
+        }, delayTicks);
+        this.running.add(griff[0]);
     }
 
     // --------------------------------------------------------------- Kopfgeld
@@ -179,6 +185,20 @@ public final class Effects {
                 cue(killer, SoundCue.MUNDHARMONIKA);
             }
         });
+        // Der Kill ist der Hoehepunkt der ganzen Funktion und hatte bisher keinen einzigen
+        // Bildschirmmoment - nur Chatzeilen. Der Titel gibt ihm einen.
+        if (this.plugin.settings().effectTitle()) {
+            later(10L, () -> {
+                if (killer.isOnline()) {
+                    killer.showTitle(Title.title(
+                            Messages.mm(Messages.KOPFGELD_TITEL_KASSIERT),
+                            Messages.mm(Messages.KOPFGELD_UNTERTITEL_KASSIERT,
+                                    Placeholder.unparsed("name", victim.getName())),
+                            Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000),
+                                    Duration.ofMillis(500))));
+                }
+            });
+        }
         // Und ein Horn fuer den ganzen Server: ein kassiertes Kopfgeld ist ein Ereignis,
         // das auch die angeht, die nicht dabei waren.
         later(20L, () -> {

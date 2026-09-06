@@ -44,6 +44,8 @@ public final class BountyStakeGui implements BankWindow {
     private final String targetName;
     private final ItemStack button;
     private boolean updateQueued;
+    /** Nach dem Buchen ist Schluss - ein zweiter Klick im selben Tick soll nichts tun. */
+    private boolean gebucht;
 
     public BountyStakeGui(BankRankingPlugin plugin, UUID target, String targetName) {
         this.plugin = plugin;
@@ -136,7 +138,8 @@ public final class BountyStakeGui implements BankWindow {
                 abgelehnt > 0 ? Material.BARRIER
                         : sinnbild != null ? sinnbild : Material.GOLD_INGOT,
                 Messages.KOPFGELD_EINSATZ_NAME
-                        .replace("<anzahl>", String.valueOf(BountyItems.size(einsatz))),
+                        .replace("<anzahl>", String.valueOf(BountyItems.size(einsatz)))
+                        .replace("<stueck>", BountyItems.size(einsatz) == 1 ? "Stück" : "Stück"),
                 lore));
 
         Bounty topf = bounties.data().pot(this.target);
@@ -210,7 +213,7 @@ public final class BountyStakeGui implements BankWindow {
             }
             case POT_SLOT -> {
                 BankWindows.click(player);
-                this.plugin.windows().openLater(player, new BountyListGui(this.plugin));
+                this.plugin.windows().openLater(player, new BountyListGui(this.plugin, player));
             }
             case CLOSE_SLOT -> this.plugin.windows().closeLater(player);
             default -> {
@@ -239,6 +242,11 @@ public final class BountyStakeGui implements BankWindow {
      * Speichern, bleibt alles im Fenster liegen und der Spieler nimmt es wieder mit.
      */
     private void confirm(Player player) {
+        if (this.gebucht) {
+            // Ein zweiter Klick, bevor das Fenster gewechselt hat, faende leere Plaetze vor
+            // und meldete faelschlich "zu wenig" - direkt nach einem gelungenen Einsatz.
+            return;
+        }
         List<ItemStack> liegend = contents();
         if (BountyItems.rejected(liegend) > 0) {
             this.plugin.send(player, Messages.KOPFGELD_NUR_MATERIALIEN);
@@ -256,13 +264,14 @@ public final class BountyStakeGui implements BankWindow {
             updateInfo();
             return;
         }
+        this.gebucht = true;
         for (int slot : STAKE_SLOTS) {
             this.inventory.setItem(slot, null);
         }
         updateInfo();
         // Nicht schliessen, sondern in die Uebersicht wechseln: sonst verschwindet im selben
         // Moment aus dem Blick, was der Spieler gerade angerichtet hat.
-        this.plugin.windows().openLater(player, new BountyListGui(this.plugin));
+        this.plugin.windows().openLater(player, new BountyListGui(this.plugin, player));
     }
 
     private void meldung(Player player, BountyService.PlaceResult ergebnis) {

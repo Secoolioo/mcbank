@@ -162,7 +162,7 @@ public final class BountyGui implements BankWindow {
             case NEXT_SLOT -> blaettern(player, this.page + 1);
             case LIST_SLOT -> {
                 BankWindows.click(player);
-                this.plugin.windows().openLater(player, new BountyListGui(this.plugin));
+                this.plugin.windows().openLater(player, new BountyListGui(this.plugin, player));
             }
             case CLOSE_SLOT -> this.plugin.windows().closeLater(player);
             default -> {

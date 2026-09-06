@@ -425,6 +425,16 @@ public final class BountyData {
         return this.unreadablePots.containsKey(target.toString());
     }
 
+    /**
+     * Ist die Beute dieses Spielers unlesbar und damit gesperrt?
+     *
+     * <p>Ohne diese Sperre koennte ein neuer Anspruch entstehen, der beim Speichern den
+     * bewahrten Block ueberschreibt - und mit ihm die Gegenstaende, die darin standen.
+     */
+    public boolean isClaimPreserved(UUID owner) {
+        return this.unreadableClaims.containsKey(owner.toString());
+    }
+
     /** Die noch nicht abgeholte Beute dieses Spielers, oder {@code null}. */
     public Claim claim(UUID owner) {
         return this.claims.get(owner);
@@ -482,6 +492,12 @@ public final class BountyData {
         if (alt == null || alt.isEmpty()) {
             return false;
         }
+        if (isClaimPreserved(killer)) {
+            // Sein bewahrter Beute-Block wuerde sonst beim Speichern verschwinden.
+            this.log.severe("Die Beute von " + killerName + " ist in kopfgelder.yml unlesbar - "
+                    + "es wird nichts ausgezahlt, bis das repariert ist");
+            return false;
+        }
         Claim alteBeute = this.claims.get(killer);
         boolean warDirty = this.dirty;
 
@@ -516,6 +532,11 @@ public final class BountyData {
         boolean warDirty = this.dirty;
 
         for (Bounty.Stake stake : alt.stakes()) {
+            if (isClaimPreserved(stake.from())) {
+                this.log.severe("Die Beute von " + stake.name() + " ist unlesbar - das Kopfgeld "
+                        + "auf " + alt.name() + " wird nicht aufgeloest");
+                return false;
+            }
             alteBeute.putIfAbsent(stake.from(), this.claims.get(stake.from()));
             this.claims.put(stake.from(), addToClaim(this.claims.get(stake.from()), stake.from(),
                     stake.name(), Claim.Reason.RUECKERSTATTUNG, now, stake.items()));
@@ -534,7 +555,7 @@ public final class BountyData {
     /** Legt Gegenstaende in die Beute eines Spielers, etwa weil sein Inventar voll war. */
     public boolean addClaim(UUID owner, String name, Claim.Reason reason, long now,
                             Map<Material, Integer> items) {
-        if (this.loadFailed || items.isEmpty()) {
+        if (this.loadFailed || items.isEmpty() || isClaimPreserved(owner)) {
             return false;
         }
         Claim alt = this.claims.get(owner);

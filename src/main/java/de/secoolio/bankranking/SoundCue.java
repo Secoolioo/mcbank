@@ -72,10 +72,6 @@ enum SoundCue {
     KISTE_WEG("kopfgeld.kiste_weg", SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.BLOCK_BARREL_CLOSE, 0.6f, 0.8f, 0L)),
 
-    /** Der Ratschen-Tick der Kiste. */
-    UHR("kopfgeld.uhr", SoundCategory.MASTER, 0.8f, 1.0f,
-            new Note(Sound.BLOCK_LEVER_CLICK, 0.4f, 1.5f, 0L)),
-
     /** Blechhorn, wenn ein Kopfgeld kassiert wurde - das hoert der ganze Server. */
     FANFARE("kopfgeld.fanfare", SoundCategory.MASTER, 0.85f, 1.0f,
             new Note(Sound.ITEM_GOAT_HORN_SOUND_1, 0.7f, 0.9f, 0L),

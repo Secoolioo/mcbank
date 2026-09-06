@@ -123,6 +123,11 @@ public final class BankCommands {
                 Placeholder.unparsed("adresse", packs.url()));
         plugin.send(sender, Messages.PACK_HASH,
                 Placeholder.unparsed("hash", packs.sha1()));
+        if (!plugin.bounties().hasPoster()) {
+            // Ohne Schriftmasse gibt es kein Plakat, nur die Sparfassung - das darf nicht
+            // still bleiben, sonst sucht der Betreiber den Fehler beim Pack.
+            plugin.send(sender, Messages.PACK_KEIN_PLAKAT);
+        }
         Map<String, String> zustand = packs.status();
         if (zustand.isEmpty()) {
             plugin.send(sender, Messages.PACK_NIEMAND);

@@ -20,6 +20,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
@@ -174,6 +175,28 @@ public final class LootBoxes implements Listener {
                     && (ort.getBlockX() >> 4) == event.getChunk().getX()
                     && (ort.getBlockZ() >> 4) == event.getChunk().getZ()) {
                 place(beute.owner(), ort);
+            }
+        }
+    }
+
+    /**
+     * Vergisst eine Kiste, deren Chunk entladen wurde.
+     *
+     * <p>Ohne das bliebe der Besitzer in der Merkliste stehen, und beim naechsten Laden des
+     * Chunks haette {@link #onChunkLoad} ihn uebersprungen - die Kiste kaeme fuer den Rest
+     * der Serverlaufzeit nie wieder.
+     */
+    @EventHandler
+    public void onChunkUnload(ChunkUnloadEvent event) {
+        for (BountyData.Claim beute : this.plugin.bounties().data().claims()) {
+            if (!beute.hasLocation() || !this.gesetzt.containsKey(beute.owner())) {
+                continue;
+            }
+            Location ort = location(beute);
+            if (ort != null && ort.getWorld().equals(event.getWorld())
+                    && (ort.getBlockX() >> 4) == event.getChunk().getX()
+                    && (ort.getBlockZ() >> 4) == event.getChunk().getZ()) {
+                this.gesetzt.remove(beute.owner());
             }
         }
     }

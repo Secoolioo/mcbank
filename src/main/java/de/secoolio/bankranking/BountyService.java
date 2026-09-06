@@ -49,6 +49,11 @@ public final class BountyService {
         return this.data;
     }
 
+    /** Gibt es ueberhaupt eine Plakatgrafik, oder nur die Sparfassung? */
+    public boolean hasPoster() {
+        return this.show.hasPoster();
+    }
+
     SkinFaces faces() {
         return this.faces;
     }
@@ -303,8 +308,24 @@ public final class BountyService {
         int abgeholt = BountyItems.size(beute.items()) - BountyItems.size(uebrig);
 
         if (!this.data.finishDelivery(owner.getUniqueId(), uebrig)) {
+            // Jetzt liegen die Gegenstaende im Inventar UND weiter in der Beute. Ohne
+            // Gegenmassnahme koennte der Spieler sie ein zweites Mal abholen. Also wird die
+            // Zustellung rueckgaengig gemacht: die Beute ist die Wahrheit, das Inventar nicht.
+            Map<Material, Integer> zurueck = new LinkedHashMap<>(beute.items());
+            uebrig.forEach((material, anzahl) -> zurueck.merge(material, -anzahl, Integer::sum));
+            for (Map.Entry<Material, Integer> e : zurueck.entrySet()) {
+                if (e.getValue() > 0) {
+                    owner.getInventory().removeItem(
+                            BountyItems.toStacks(Map.of(e.getKey(), e.getValue()))
+                                    .toArray(new ItemStack[0]));
+                }
+            }
+            owner.saveData();
             this.plugin.getLogger().severe("Die Beute von " + owner.getName()
-                    + " konnte nicht fortgeschrieben werden - bitte kopfgelder.yml pruefen");
+                    + " konnte nicht fortgeschrieben werden - die Zustellung wurde "
+                    + "zurueckgenommen, die Gegenstaende bleiben in der Beute. "
+                    + "Bitte kopfgelder.yml pruefen.");
+            this.plugin.send(owner, Messages.BEUTE_FEHLER);
             return;
         }
         if (abgeholt > 0) {

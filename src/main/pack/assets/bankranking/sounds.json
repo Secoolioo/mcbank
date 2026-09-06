@@ -129,17 +129,5 @@
         "stream": false
       }
     ]
-  },
-  "kopfgeld.uhr": {
-    "subtitle": "subtitles.bankranking.kopfgeld.uhr",
-    "sounds": [
-      {
-        "name": "bankranking:kopfgeld/uhr",
-        "volume": 1.0,
-        "pitch": 1.0,
-        "stream": false,
-        "attenuation_distance": 12
-      }
-    ]
   }
 }

@@ -244,14 +244,13 @@ KLAENGE = [
     ("schuss_fern", schuss_fern, 1, -24.0, 2.60),
     ("mundharmonika", mundharmonika, 2, -18.0, 3.40),
     ("muenzen", muenzen, 1, -22.0, 1.20),
-    ("uhr", uhr, 1, None, 0.14),
     ("hahn", hahn, 1, None, 0.45),
     ("sporen", sporen, 1, -24.0, 0.95),
     ("kiste_weg", kiste_weg, 1, -22.0, 1.10),
 ]
 
 # Spitzenpegel fuer die drei zu kurzen Klaenge.
-KURZ_SPITZE = {"nagel": -3.0, "uhr": -9.0, "hahn": -7.0}
+KURZ_SPITZE = {"nagel": -3.0, "hahn": -7.0}
 
 # Klaenge, die im Pack liegen, aber nicht hier entstehen: vom Betreiber geliefertes Material.
 # Sie werden nicht angefasst, muessen aber in sounds.json stehen.
@@ -272,7 +271,6 @@ UNTERTITEL = {
     "schuss_fern":   ("Schuss hallt in der Ferne", "Distant gunshot echoes"),
     "mundharmonika": ("Mundharmonika spielt", "Harmonica plays"),
     "muenzen":       ("Muenzen klimpern", "Coins jingle"),
-    "uhr":           ("Uhr tickt", "Clock ticks"),
     "hahn":          ("Revolverhahn klickt", "Hammer cocks"),
     "sporen":        ("Sporen klirren", "Spurs jingle"),
     "kiste_weg":     ("Kiste verschwindet", "Crate disappears"),
@@ -282,7 +280,7 @@ UNTERTITEL = {
 # tragen soll, waehlt seine Hoerer in Java aus - sonst haetten Spieler mit Pack eine
 # andere Reichweite als Spieler ohne, und das faellt erst im Betrieb auf.
 REICHWEITE = {"nagel": 16, "gejagt": 8, "schuss": 16, "schuss_fern": 24,
-              "muenzen": 16, "uhr": 12, "kiste_weg": 16}
+              "muenzen": 16, "kiste_weg": 16}
 
 # Beim ersten Abspielen darf es nicht stocken - diese drei sitzen auf dem Moment.
 VORLADEN = {"plakat", "fanfare", "nagel", "schuss"}
