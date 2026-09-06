@@ -180,7 +180,9 @@ public final class Messages {
             "<gold>/bankranking skin <nr> <Spieler></gold> <gray>- Skin eines NPCs ändern",
             "<gold>/bankranking reload</gold> <gray>- config.yml und players.yml neu laden",
             "<gold>/bankranking wert</gold> <gray>- Punktwert des Items in deiner Hand anzeigen",
-            "<gold>/bankranking sidebar</gold> <gray>- Rangliste prüfen und neu aufbauen"
+            "<gold>/bankranking sidebar</gold> <gray>- Rangliste prüfen und neu aufbauen",
+            "<gold>/bankranking pack</gold> <gray>- zeigt, wer das Resourcepack geladen hat",
+            "<gold>/kopfgeld aufheben <Spieler></gold> <gray>- Kopfgeld auflösen, Einsätze zurück"
     };
 
     public static final String NPC_GESETZT =
@@ -446,6 +448,20 @@ public final class Messages {
     public static final String BEUTE_FREMD = "<red>Das ist nicht deine Beute.";
     /** <anzahl>. */
     public static final String BEUTE_ABGEHOLT = "<green>Beute abgeholt: <white><anzahl></white> Items.";
+
+    // ----- Resourcepack -----
+
+    public static final String PACK_AUS =
+            "<yellow>Das Resourcepack ist abgeschaltet oder konnte nicht bereitgestellt werden. "
+                    + "Alle sehen die Sparfassung. Details im Server-Log.";
+    /** <adresse>. */
+    public static final String PACK_ADRESSE = "<gray>Adresse: <white><adresse>";
+    /** <hash>. */
+    public static final String PACK_HASH = "<gray>SHA-1: <dark_gray><hash>";
+    public static final String PACK_NIEMAND = "<gray>Gerade ist niemand online.";
+    /** <name>, <zustand>. */
+    public static final String PACK_SPIELER =
+            "<dark_gray>- <white><name></white> <dark_gray>-</dark_gray> <gray><zustand>";
 
     // ----- Kopfgeld: Bildschirm -----
 

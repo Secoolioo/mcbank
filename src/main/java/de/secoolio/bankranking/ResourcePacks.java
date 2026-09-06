@@ -48,11 +48,25 @@ public final class ResourcePacks implements Listener {
     public static final UUID PACK_ID =
             UUID.nameUUIDFromBytes("bankranking-kopfgeld".getBytes(StandardCharsets.UTF_8));
 
+    /**
+     * Der Ausweichweg, wenn der eingebaute Webserver einen Spieler nicht erreicht.
+     *
+     * <p>Das ist der haeufigste Fall, den ein Betreiber nicht bemerkt: der Port ist in der
+     * Firewall zu, das Plugin haelt alles fuer in Ordnung (sein Selbsttest geht ja nur an sich
+     * selbst), und die Spieler bekommen still die Sparfassung. Statt darauf zu warten, dass
+     * jemand das Log liest, wird bei einem fehlgeschlagenen Download einmal ueber diese
+     * Adresse nachgereicht.
+     */
+    private static final String FALLBACK_URL =
+            "https://github.com/Secoolioo/mcbank/releases/latest/download/kopfgeld.zip";
+
     private final BankRankingPlugin plugin;
     private final ResourcePackFile file;
     private final ResourcePackServer server;
     private final String url;
     private final Set<UUID> loaded = Collections.synchronizedSet(new HashSet<>());
+    /** Wem schon einmal ueber den Ausweichweg nachgereicht wurde - genau einmal je Spieler. */
+    private final Set<UUID> retried = Collections.synchronizedSet(new HashSet<>());
 
     private ResourcePacks(BankRankingPlugin plugin, ResourcePackFile file,
                           ResourcePackServer server, String url) {
@@ -171,8 +185,12 @@ public final class ResourcePacks implements Listener {
 
     /** Schickt die Anfrage an einen Spieler. */
     void send(Player player) {
+        send(player, this.url);
+    }
+
+    private void send(Player player, String adresse) {
         player.sendResourcePacks(ResourcePackRequest.resourcePackRequest()
-                .packs(ResourcePackInfo.resourcePackInfo(PACK_ID, URI.create(this.url),
+                .packs(ResourcePackInfo.resourcePackInfo(PACK_ID, URI.create(adresse),
                         this.file.sha1()))
                 // Kein Kick: der Zwang haengt ohnehin an require-resource-pack in den
                 // server.properties, und wir wollen ihn ausdruecklich nicht.
@@ -233,13 +251,57 @@ public final class ResourcePacks implements Listener {
         UUID id = event.getPlayer().getUniqueId();
         if (isActive(event.getStatus())) {
             this.loaded.add(id);
-        } else if (!isIntermediate(event.getStatus())) {
-            this.loaded.remove(id);
+            return;
         }
+        if (isIntermediate(event.getStatus())) {
+            return;
+        }
+        this.loaded.remove(id);
+        if (isReachabilityProblem(event.getStatus())) {
+            retryElsewhere(event.getPlayer());
+        }
+    }
+
+    /** Lag es an der Erreichbarkeit - oder hat der Spieler schlicht abgelehnt? */
+    static boolean isReachabilityProblem(PlayerResourcePackStatusEvent.Status status) {
+        return status == PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD
+                || status == PlayerResourcePackStatusEvent.Status.INVALID_URL;
+    }
+
+    /**
+     * Reicht das Pack einmalig ueber die oeffentliche Adresse nach.
+     *
+     * <p>Nur solange es unveraendert ist: hat der Betreiber eigene Dateien eingelegt, weicht
+     * sein Pack vom veroeffentlichten ab, und der Client wuerde es wegen des anderen Hashes
+     * ohnehin verwerfen.
+     */
+    private void retryElsewhere(Player player) {
+        if (this.url.equals(FALLBACK_URL) || !this.file.replaced().isEmpty()
+                || !this.retried.add(player.getUniqueId())) {
+            return;
+        }
+        this.plugin.getLogger().info(player.getName() + " konnte das Resourcepack unter "
+                + this.url + " nicht laden - es wird ueber " + FALLBACK_URL + " nachgereicht. "
+                + "Ist das dauerhaft so, ist vermutlich der Port in der Firewall zu.");
+        send(player, FALLBACK_URL);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         this.loaded.remove(event.getPlayer().getUniqueId());
+        this.retried.remove(event.getPlayer().getUniqueId());
+    }
+
+    /** Der Zustand je Spieler, fuer die Verwaltung. */
+    java.util.Map<String, String> status() {
+        java.util.Map<String, String> zeilen = new java.util.LinkedHashMap<>();
+        for (Player player : this.plugin.getServer().getOnlinePlayers()) {
+            zeilen.put(player.getName(), this.loaded.contains(player.getUniqueId())
+                    ? "geladen"
+                    : this.retried.contains(player.getUniqueId())
+                            ? "Download gescheitert, ueber die oeffentliche Adresse nachgereicht"
+                            : "kein Pack");
+        }
+        return zeilen;
     }
 }

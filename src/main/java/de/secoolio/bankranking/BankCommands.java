@@ -101,7 +101,36 @@ public final class BankCommands {
                 }))
                 .then(Commands.literal("wert").executes(ctx -> value(plugin, ctx)))
                 .then(Commands.literal("sidebar").executes(ctx -> sidebar(plugin, ctx)))
+                .then(Commands.literal("pack").executes(ctx -> pack(plugin, ctx)))
                 .build(), "Verwaltung des Bank-Plugins");
+    }
+
+    /**
+     * Zeigt, ob das Resourcepack ankommt.
+     *
+     * <p>Ohne diesen Befehl merkt ein Betreiber nie, dass die Spieler still die Sparfassung
+     * bekommen: der Selbsttest des Plugins geht nur an sich selbst und sagt nichts darueber,
+     * ob ein Mitspieler durch die Firewall kommt.
+     */
+    private static int pack(BankRankingPlugin plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSender sender = ctx.getSource().getSender();
+        ResourcePacks packs = plugin.packs();
+        if (packs == null) {
+            plugin.send(sender, Messages.PACK_AUS);
+            return Command.SINGLE_SUCCESS;
+        }
+        plugin.send(sender, Messages.PACK_ADRESSE,
+                Placeholder.unparsed("adresse", packs.url()));
+        plugin.send(sender, Messages.PACK_HASH,
+                Placeholder.unparsed("hash", packs.sha1()));
+        Map<String, String> zustand = packs.status();
+        if (zustand.isEmpty()) {
+            plugin.send(sender, Messages.PACK_NIEMAND);
+            return Command.SINGLE_SUCCESS;
+        }
+        zustand.forEach((name, text) -> sender.sendMessage(Messages.mm(Messages.PACK_SPIELER,
+                Placeholder.unparsed("name", name), Placeholder.unparsed("zustand", text))));
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int spawn(BankRankingPlugin plugin, CommandContext<CommandSourceStack> ctx, String skin) {
