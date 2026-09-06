@@ -221,7 +221,19 @@ public final class BountyService {
                 .completeOnTimeout(SkinFace.defaultFor(target), 700,
                         java.util.concurrent.TimeUnit.MILLISECONDS)
                 .thenAccept(gesicht -> this.plugin.getServer().getScheduler().runTask(this.plugin,
-                        () -> this.show.announce(gesicht, target, targetName, placer, topf)));
+                        () -> {
+                            // Der Schutz gehoert hierher, nicht um den Aufruf von announce():
+                            // dort ist nur die Kette gebaut, die eigentliche Arbeit laeuft erst
+                            // in dieser Aufgabe. Ein Fehler beim Zeichnen des Plakats riss sonst
+                            // die ganze Ankuendigung mit - kein Chat, kein Ton, fuer niemanden.
+                            try {
+                                this.show.announce(gesicht, target, targetName, placer, topf);
+                            } catch (RuntimeException e) {
+                                this.plugin.getLogger().warning("Die Ankuendigung des Kopfgelds "
+                                        + "ist gescheitert (" + e + "). Das Kopfgeld selbst "
+                                        + "steht.");
+                            }
+                        }));
     }
 
     // -------------------------------------------------------------- Kassieren

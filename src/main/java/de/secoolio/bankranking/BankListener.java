@@ -179,7 +179,7 @@ public final class BankListener implements Listener {
             }
         }, 40L);
         if (this.plugin.packs() != null) {
-            this.plugin.packs().send(event.getPlayer());
+            this.plugin.packs().sendOnJoin(event.getPlayer());
         }
     }
 

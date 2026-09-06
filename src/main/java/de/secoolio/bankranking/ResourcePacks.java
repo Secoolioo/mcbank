@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
 import io.papermc.paper.connection.PlayerConfigurationConnection;
 import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent;
 import net.kyori.adventure.audience.Audience;
@@ -78,6 +79,9 @@ public final class ResourcePacks implements Listener {
      */
     private static final int UMSCHALTEN_AB = 2;
 
+    /** Wie lange der Beitritt auf eine Antwort aus der Konfigurationsphase wartet. */
+    private static final long NACHREICHEN_TICKS = 60L;
+
     /** Nicht final: bei dauerhafter Unerreichbarkeit wird auf die Ablage umgestellt. */
     private volatile String url;
     private final Set<UUID> loaded = Collections.synchronizedSet(new HashSet<>());
@@ -87,6 +91,8 @@ public final class ResourcePacks implements Listener {
     private final Set<UUID> configured = Collections.synchronizedSet(new HashSet<>());
     /** Bei wem der Download gescheitert ist - zaehlt je Spieler nur einmal. */
     private final Set<UUID> failed = Collections.synchronizedSet(new HashSet<>());
+    /** Wer ueberhaupt einen Endzustand gemeldet hat - egal welchen. */
+    private final Set<UUID> answered = Collections.synchronizedSet(new HashSet<>());
 
     private ResourcePacks(BankRankingPlugin plugin, ResourcePackFile file,
                           ResourcePackServer server, String url) {
@@ -289,18 +295,29 @@ public final class ResourcePacks implements Listener {
     @EventHandler
     public void onConfigure(AsyncPlayerConnectionConfigureEvent event) {
         PlayerConfigurationConnection verbindung = event.getConnection();
-        UUID id;
+        UUID id = null;
         try {
-            id = verbindung.getProfile().getId();
+            // Beides hier drin: der zweite Profilzugriff lag frueher ausserhalb des Schutzes,
+            // ausgerechnet in dem Fenster, in dem die Vormerkung schon gesetzt war. Eine
+            // Ausnahme dort haette den Spieler als versorgt gelten lassen, ohne dass je etwas
+            // hinausging - und der Beitrittsweg haette geschwiegen.
+            PlayerProfile profil = verbindung.getProfile();
+            id = profil.getId();
+            String name = profil.getName();
+            if (id == null) {
+                return;
+            }
+            this.configured.add(id);
+            send(verbindung.getAudience(), this.url, id, name);
         } catch (RuntimeException e) {
-            return;
+            // Ein asynchrones Event verschluckt Ausnahmen fuer den Spieler unsichtbar. Ohne
+            // diese Zeile bliebe der haeufigste Fehlerfall voellig spurlos.
+            if (id != null) {
+                this.configured.remove(id);
+            }
+            this.plugin.getLogger().warning("Das Pack liess sich in der Konfigurationsphase "
+                    + "nicht verschicken (" + e + "). Es wird beim Beitritt nachgereicht.");
         }
-        if (id == null) {
-            return;
-        }
-        this.configured.add(id);
-        send(verbindung.getAudience(), this.url, id,
-                verbindung.getProfile().getName());
     }
 
     /**
@@ -321,11 +338,35 @@ public final class ResourcePacks implements Listener {
         if (this.loaded.contains(player.getUniqueId())) {
             return;
         }
-        if (this.configured.contains(player.getUniqueId())) {
-            this.plugin.getLogger().info(player.getName() + " hat das Pack in der "
-                    + "Konfigurationsphase nicht geladen - es wird beim Beitritt nachgereicht.");
-        }
         send(player, this.url);
+    }
+
+    /**
+     * Der Beitritt als Sicherheitsnetz unter der Konfigurationsphase.
+     *
+     * <p>Hier sofort noch einmal zu schicken waere ein Wettlauf: die Antwort des Clients laeuft
+     * ueber einen Netz-Thread und kann dem Beitritt nachlaufen. Ein zweites Mal schicken
+     * erzwaenge dann genau den Neuaufbau mitten im Spiel, den die Konfigurationsphase gerade
+     * vermeidet - also gewartet, bis feststeht, ob ueberhaupt eine Antwort kam.
+     */
+    void sendOnJoin(Player player) {
+        UUID id = player.getUniqueId();
+        if (this.loaded.contains(id)) {
+            return;
+        }
+        if (!this.configured.contains(id)) {
+            // Die Konfigurationsphase hat diesen Spieler nie gesehen - sofort nachreichen.
+            send(player, this.url);
+            return;
+        }
+        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+            if (!player.isOnline() || this.answered.contains(id)) {
+                return;
+            }
+            this.plugin.getLogger().warning(player.getName() + " hat auf das Pack aus der "
+                    + "Konfigurationsphase nicht geantwortet - es wird jetzt nachgereicht.");
+            send(player, this.url);
+        }, NACHREICHEN_TICKS);
     }
 
     private void send(Player player, String adresse) {
@@ -333,6 +374,9 @@ public final class ResourcePacks implements Listener {
     }
 
     private void send(Audience empfaenger, String adresse, UUID id, String name) {
+        // Ohne diese Zeile war der gesamte Sendeweg im Log unsichtbar: es liess sich nicht
+        // unterscheiden, ob ein Spieler abgelehnt hatte oder ob nie etwas hinausgegangen war.
+        this.plugin.getLogger().info("Pack-Anfrage an " + name + " -> " + adresse);
         empfaenger.sendResourcePacks(ResourcePackRequest.resourcePackRequest()
                 .packs(ResourcePackInfo.resourcePackInfo(PACK_ID, URI.create(adresse),
                         this.file.sha1()))
@@ -358,13 +402,17 @@ public final class ResourcePacks implements Listener {
      */
     private void record(UUID id, String name, ResourcePackStatus status, Audience empfaenger) {
         if (status == ResourcePackStatus.SUCCESSFULLY_LOADED) {
+            this.answered.add(id);
             this.loaded.add(id);
+            this.plugin.getLogger().info("Pack geladen von " + name);
             return;
         }
         if (status.intermediate()) {
             return;
         }
+        this.answered.add(id);
         this.loaded.remove(id);
+        this.plugin.getLogger().info("Pack-Antwort von " + name + ": " + status);
         if (status == ResourcePackStatus.FAILED_DOWNLOAD
                 || status == ResourcePackStatus.INVALID_URL) {
             handleFailure(id, name, empfaenger);
@@ -401,6 +449,7 @@ public final class ResourcePacks implements Listener {
         this.retried.clear();
         this.configured.clear();
         this.failed.clear();
+        this.answered.clear();
     }
 
     /** Nur der Endzustand zaehlt - Zwischenstaende wuerden zu frueh umschalten. */
@@ -476,6 +525,7 @@ public final class ResourcePacks implements Listener {
         this.loaded.remove(event.getPlayer().getUniqueId());
         this.retried.remove(event.getPlayer().getUniqueId());
         this.configured.remove(event.getPlayer().getUniqueId());
+        this.answered.remove(event.getPlayer().getUniqueId());
     }
 
     /** Der Zustand je Spieler, fuer die Verwaltung. */
