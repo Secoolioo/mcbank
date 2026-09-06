@@ -112,13 +112,28 @@ public final class ResourcePacks implements Listener {
     static ResourcePacks start(BankRankingPlugin plugin) {
         Settings settings = plugin.settings();
         if (!settings.packEnabled()) {
+            // Diese Zeile ist wichtiger, als sie aussieht: ohne sie war das Abschalten des
+            // Packs der einzige Zustand, der ueberhaupt keine Spur hinterliess. Weder Server-
+            // noch Client-Log erwaehnten das Thema mit einem Wort, und die Suche nach der
+            // Ursache lief zwangslaeufig ins Leere.
+            plugin.getLogger().info("Resourcepack ist in der config.yml abgeschaltet "
+                    + "(resourcepack.aktiv: false) - das Kopfgeld zeigt die Sparfassung.");
             return null;
         }
         try {
             ResourcePackFile datei = ResourcePackFile.build(plugin.getDataFolder().toPath(),
                     plugin.getLogger());
-            Path ablage = plugin.getDataFolder().toPath().resolve("pack").resolve("kopfgeld.zip");
-            datei.writeTo(ablage);
+            try {
+                Path ablage = plugin.getDataFolder().toPath()
+                        .resolve("pack").resolve("kopfgeld.zip");
+                datei.writeTo(ablage);
+            } catch (IOException e) {
+                // Diese Kopie dient allein dem Nachsehen von Hand; ausgeliefert wird ohnehin
+                // aus dem Speicher. Sie lag bisher im grossen Schutzblock, und damit riss ein
+                // blosses Rechteproblem im Plugin-Ordner die gesamte Auslieferung mit.
+                plugin.getLogger().warning("Die Kopie des Packs liess sich nicht ablegen ("
+                        + e.getMessage() + "). Ausgeliefert wird trotzdem.");
+            }
 
             String adresse = settings.packAddress();
             if (adresse.startsWith("http://") || adresse.startsWith("https://")) {

@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "de.secoolio"
-version = "3.1.5"
+version = "3.1.6"
 description = "Item-Bank mit Punkte-Rangliste und Kopfgeldern (WANTED-Plakate, eigenes Resourcepack)"
 
 repositories {
