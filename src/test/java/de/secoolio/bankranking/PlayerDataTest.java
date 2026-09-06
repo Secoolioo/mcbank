@@ -181,6 +181,45 @@ class PlayerDataTest {
         assertTrue(Files.exists(dir.resolve("players.yml")));
     }
 
+    @Test
+    @DisplayName("Ein wieder gültiges Konto verdrängt seinen alten unlesbaren Block")
+    void repairedAccountWinsOverPreservedBlock(@TempDir Path dir) throws IOException {
+        // Punktzahl von Hand verdorben: der Eintrag ist unlesbar, aber die Spieler-ID ist gültig.
+        Files.writeString(fileIn(dir).toPath(), """
+                spieler:
+                  %s:
+                    name: Steve
+                    punkte: -3.0
+                """.formatted(STEVE));
+        PlayerData data = data(dir);
+        data.load();
+        assertEquals(0, data.size(), "der verdorbene Eintrag zählt nicht als Konto");
+
+        assertTrue(data.add(STEVE, "Steve", 40.0, Map.of()).saved());
+
+        PlayerData reloaded = data(dir);
+        reloaded.load();
+        assertEquals(40.0, reloaded.get(STEVE), 1e-9, "die Einzahlung steht wirklich in der Datei");
+    }
+
+    @Test
+    @DisplayName("Ein unlesbarer Eintrag ohne Unterabschnitt verliert seinen Inhalt nicht")
+    void preservesScalarEntries(@TempDir Path dir) throws IOException {
+        Files.writeString(fileIn(dir).toPath(), """
+                spieler:
+                  %s: 12.5
+                  %s:
+                    name: Alex
+                    punkte: 20.0
+                """.formatted(STEVE, ALEX));
+        PlayerData data = data(dir);
+        data.load();
+        assertEquals(1, data.size());
+
+        data.add(ALEX, "Alex", 5.0, Map.of());
+        assertTrue(readFile(dir).contains("12.5"), "der ursprüngliche Wert steht weiterhin in der Datei");
+    }
+
     private static File fileIn(Path dir) {
         return new File(dir.toFile(), "players.yml");
     }

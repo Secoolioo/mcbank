@@ -75,7 +75,7 @@ public final class NpcManager {
     private final File file;
     private final Map<Integer, NpcEntry> npcs = new TreeMap<>();
     /** NPC-Bloecke, die das Plugin nicht lesen konnte - sie werden unveraendert zurueckgeschrieben. */
-    private final Map<String, Map<String, Object>> unreadable = new LinkedHashMap<>();
+    private final Map<String, Object> unreadable = new LinkedHashMap<>();
     private final Map<Integer, int[]> respawns = new HashMap<>();
     private final Map<Integer, Long> respawnWindowStart = new HashMap<>();
     private int nextId = 1;
@@ -182,8 +182,10 @@ public final class NpcManager {
                         (float) npc.getDouble("yaw"), (float) npc.getDouble("pitch"), skin, entityId));
             }
         }
-        this.nextId = Math.max(yaml.getInt("naechste-id", 1),
-                this.npcs.keySet().stream().mapToInt(Integer::intValue).max().orElse(0) + 1);
+        // Die in keepUnreadable belegten Nummern mit einbeziehen, sonst wuerde eine bewahrte
+        // Nummer spaeter erneut vergeben und den bewahrten Block ueberschreiben.
+        this.nextId = Math.max(this.nextId, Math.max(yaml.getInt("naechste-id", 1),
+                this.npcs.keySet().stream().mapToInt(Integer::intValue).max().orElse(0) + 1));
     }
 
     private static boolean hasNumber(ConfigurationSection section, String key) {
@@ -195,7 +197,7 @@ public final class NpcManager {
      * beim naechsten Speichern den Eintrag loeschen und die Figur als herrenlose Statue zuruecklassen.
      */
     private void keepUnreadable(ConfigurationSection section, String key, String reason) {
-        this.unreadable.put(key, YamlSections.copyOf(section.getConfigurationSection(key)));
+        this.unreadable.put(key, YamlSections.rawValue(section, key));
         this.log.warning("npcs.yml: Eintrag '" + key + "' hat " + reason
                 + " - er wird beim Speichern unverändert übernommen, bitte von Hand prüfen");
         try {
@@ -213,7 +215,8 @@ public final class NpcManager {
         }
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("naechste-id", this.nextId);
-        this.unreadable.forEach((key, values) -> YamlSections.restore(yaml, "npcs." + key, values));
+        ConfigurationSection npcSection = yaml.createSection("npcs");
+        this.unreadable.forEach((key, values) -> YamlSections.restore(npcSection, key, values));
         for (NpcEntry entry : this.npcs.values()) {
             String base = "npcs." + entry.id() + ".";
             yaml.set(base + "world", entry.world());

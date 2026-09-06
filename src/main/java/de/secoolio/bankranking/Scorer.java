@@ -54,7 +54,18 @@ public final class Scorer {
      */
     public record Deposit(List<Valuation> valuations, int itemCount, double rawTotal,
                           double afterSaturation, double wealthFactor, double total,
-                          Map<Material, Double> saturationDeltas) {
+                          Map<Material, Double> saturationDeltas,
+                          Map<Material, Integer> itemsPerMaterial) {
+
+        /** Das Material, von dem am meisten dabei war - fuer die Kontoseite. */
+        public Material topMaterial() {
+            return this.itemsPerMaterial.entrySet().stream()
+                    .max(java.util.Comparator
+                            .<Map.Entry<Material, Integer>>comparingInt(Map.Entry::getValue)
+                            .thenComparing(entry -> entry.getKey().name(), java.util.Comparator.reverseOrder()))
+                    .map(Map.Entry::getKey)
+                    .orElse(null);
+        }
     }
 
     /** Ergebnis des Auspackens: zu bewertende Items und leere Behaelter, die zurueckgehen. */
@@ -197,6 +208,7 @@ public final class Scorer {
     public Deposit deposit(List<ItemFacts> stacks, Map<Material, Double> given, double balance) {
         List<Valuation> valuations = new ArrayList<>();
         Map<Material, Double> pending = new EnumMap<>(Material.class);
+        Map<Material, Integer> perMaterial = new EnumMap<>(Material.class);
         int itemCount = 0;
         double raw = 0.0;
         double credited = 0.0;
@@ -207,6 +219,7 @@ public final class Scorer {
             double credit = saturationCredit(before, base.rawPoints());
             valuations.add(base.withCredit(credit));
             itemCount += facts.amount();
+            perMaterial.merge(facts.material(), facts.amount(), Integer::sum);
             raw += base.rawPoints();
             credited += credit;
             if (this.settings.saturationEnabled()) {
@@ -216,7 +229,7 @@ public final class Scorer {
         double total = wealthCredit(balance, credited);
         double wealth = credited > 0.0 ? total / credited : 1.0;
         return new Deposit(valuations, itemCount, round1(raw), round1(credited), wealth,
-                round1(total), Map.copyOf(pending));
+                round1(total), Map.copyOf(pending), Map.copyOf(perMaterial));
     }
 
     /** Bukkit-Adapter: die Bewertungsgrundlagen mehrerer Stapel. */

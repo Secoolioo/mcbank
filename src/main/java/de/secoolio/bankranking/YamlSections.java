@@ -34,34 +34,33 @@ final class YamlSections {
         return copy;
     }
 
-    /** Schreibt eine solche Kopie unveraendert an ihren Pfad zurueck. */
-    static void restore(ConfigurationSection root, String path, Map<String, Object> values) {
-        if (values.isEmpty()) {
-            // Ein leerer Abschnitt laesst sich nicht als Wert schreiben; ein leerer Knoten reicht.
-            root.createSection(path);
+    /**
+     * Schreibt einen bewahrten Wert unveraendert zurueck.
+     *
+     * <p>Der Schluessel wird woertlich gesetzt, auch wenn er einen Punkt enthaelt: sonst wuerde aus
+     * einem Namen wie {@code my.player} unversehens eine Verschachtelung.
+     *
+     * @param parent der Abschnitt, in den geschrieben wird
+     * @param key    der Schluessel darin
+     * @param value  eine Map (Abschnitt) oder ein einfacher Wert
+     */
+    static void restore(ConfigurationSection parent, String key, Object value) {
+        if (value instanceof Map<?, ?> nested) {
+            if (nested.isEmpty()) {
+                // Ein leerer Abschnitt laesst sich nicht als Wert schreiben; ein leerer Knoten reicht.
+                parent.createSection(key);
+                return;
+            }
+            ConfigurationSection target = parent.createSection(key);
+            nested.forEach((childKey, childValue) -> restore(target, String.valueOf(childKey), childValue));
             return;
         }
-        ConfigurationSection target = root.createSection(path);
-        write(target, values);
+        parent.set(key, value);
     }
 
-    private static void write(ConfigurationSection target, Map<String, Object> values) {
-        values.forEach((key, value) -> {
-            if (value instanceof Map<?, ?> nested) {
-                ConfigurationSection child = target.createSection(key);
-                nested.forEach((childKey, childValue) -> writeOne(child, String.valueOf(childKey), childValue));
-            } else {
-                target.set(key, value);
-            }
-        });
-    }
-
-    private static void writeOne(ConfigurationSection target, String key, Object value) {
-        if (value instanceof Map<?, ?> nested) {
-            ConfigurationSection child = target.createSection(key);
-            nested.forEach((childKey, childValue) -> writeOne(child, String.valueOf(childKey), childValue));
-        } else {
-            target.set(key, value);
-        }
+    /** Der Rohinhalt eines Schluessels: ein Abschnitt wird zur Map, alles andere bleibt, wie es ist. */
+    static Object rawValue(ConfigurationSection section, String key) {
+        Object value = section.get(key);
+        return value instanceof ConfigurationSection nested ? copyOf(nested) : value;
     }
 }

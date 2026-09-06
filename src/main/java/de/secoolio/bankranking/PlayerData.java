@@ -34,7 +34,11 @@ import org.bukkit.configuration.file.YamlConfiguration;
  */
 public final class PlayerData {
 
-    public record Entry(String name, double points) {
+    public record Entry(String name, double points, PlayerStats stats) {
+
+        Entry(String name, double points) {
+            this(name, points, PlayerStats.EMPTY);
+        }
     }
 
     /** Ergebnis einer Einzahlung: ob gespeichert werden konnte und der neue Kontostand. */
@@ -48,7 +52,7 @@ public final class PlayerData {
     private final Map<UUID, Entry> entries = new TreeMap<>();
     private final Map<UUID, Saturation> saturations = new HashMap<>();
     /** Eintraege, die das Plugin nicht lesen konnte - sie werden unveraendert zurueckgeschrieben. */
-    private final Map<String, Map<String, Object>> unreadable = new LinkedHashMap<>();
+    private final Map<String, Object> unreadable = new LinkedHashMap<>();
     private boolean dirty;
     private boolean loadFailed;
 
@@ -128,7 +132,7 @@ public final class PlayerData {
         }
         Map<UUID, Entry> freshEntries = new TreeMap<>();
         Map<UUID, Saturation> freshSaturations = new HashMap<>();
-        Map<String, Map<String, Object>> freshUnreadable = new LinkedHashMap<>();
+        Map<String, Object> freshUnreadable = new LinkedHashMap<>();
         readInto(yaml, freshEntries, freshSaturations, freshUnreadable);
         // Alle drei Stände gemeinsam tauschen, damit Punkte und Sättigung nie auseinanderlaufen.
         this.entries.clear();
@@ -143,7 +147,7 @@ public final class PlayerData {
 
     private void readInto(YamlConfiguration yaml, Map<UUID, Entry> target,
                           Map<UUID, Saturation> saturationTarget,
-                          Map<String, Map<String, Object>> unreadableTarget) {
+                          Map<String, Object> unreadableTarget) {
         ConfigurationSection section = yaml.getConfigurationSection("spieler");
         if (section == null) {
             return;
@@ -162,15 +166,17 @@ public final class PlayerData {
                 continue;
             }
             String name = section.getString(key + ".name", "Unbekannt");
-            target.put(id, new Entry(name, points));
+            PlayerStats stats = PlayerStats.read(section.getConfigurationSection(key + ".statistik"),
+                    System.currentTimeMillis());
+            target.put(id, new Entry(name, points, stats));
             readSaturation(section, key, id, saturationTarget);
         }
     }
 
     /** Merkt sich einen unlesbaren Eintrag wortgetreu, statt ihn beim Speichern zu verlieren. */
     private void keepUnreadable(ConfigurationSection section, String key,
-                                Map<String, Map<String, Object>> target, String reason) {
-        target.put(key, YamlSections.copyOf(section.getConfigurationSection(key)));
+                                Map<String, Object> target, String reason) {
+        target.put(key, YamlSections.rawValue(section, key));
         this.log.warning("players.yml: Eintrag '" + key + "' hat " + reason
                 + " - er wird beim Speichern unverändert übernommen, bitte von Hand prüfen");
     }
@@ -244,6 +250,17 @@ public final class PlayerData {
      * @param saturationDeltas Zuwaechse je Rohstoffgruppe aus {@link Scorer.Deposit}
      */
     public AddResult add(UUID id, String name, double delta, Map<Material, Double> saturationDeltas) {
+        return add(id, name, delta, saturationDeltas, null, Map.of());
+    }
+
+    /**
+     * Wie oben, zusaetzlich mit den Kennzahlen fuer die Kontoseite.
+     *
+     * @param deposit          die Einzahlung fuer die Statistik, oder {@code null}
+     * @param itemsPerMaterial Stueckzahl je Material dieser Einzahlung
+     */
+    public AddResult add(UUID id, String name, double delta, Map<Material, Double> saturationDeltas,
+                         PlayerStats.Deposit deposit, Map<Material, Integer> itemsPerMaterial) {
         if (!Double.isFinite(delta) || delta < 0.0) {
             this.log.severe("Einzahlung von " + name + " ergab keinen gültigen Betrag (" + delta
                     + ") - nichts gebucht");
@@ -254,8 +271,14 @@ public final class PlayerData {
         Saturation savedSaturation = previousSaturation == null ? null : previousSaturation.copy();
         boolean wasDirty = this.dirty;
 
+        // Der Spieler hat wieder ein gueltiges Konto - der alte, unlesbare Block wird nicht mehr gebraucht.
+        this.unreadable.remove(id.toString());
         double total = Scorer.round1((previous == null ? 0.0 : previous.points()) + delta);
-        this.entries.put(id, new Entry(name, total));
+        PlayerStats stats = previous == null ? PlayerStats.EMPTY : previous.stats();
+        if (deposit != null) {
+            stats = stats.record(deposit, itemsPerMaterial);
+        }
+        this.entries.put(id, new Entry(name, total, stats));
         if (!saturationDeltas.isEmpty()) {
             this.saturations.computeIfAbsent(id, key -> new Saturation(System.currentTimeMillis()))
                     .commit(saturationDeltas);
@@ -282,6 +305,12 @@ public final class PlayerData {
     public double get(UUID id) {
         Entry entry = this.entries.get(id);
         return entry == null ? 0.0 : entry.points();
+    }
+
+    /** Die Kennzahlen eines Spielers; nie {@code null}. */
+    public PlayerStats stats(UUID id) {
+        Entry entry = this.entries.get(id);
+        return entry == null ? PlayerStats.EMPTY : entry.stats();
     }
 
     /**
@@ -349,10 +378,19 @@ public final class PlayerData {
             return false;
         }
         YamlConfiguration yaml = new YamlConfiguration();
+        ConfigurationSection players = yaml.createSection("spieler");
+        // Zuerst die bewahrten Bloecke, danach die echten Konten: haette ein Spieler beides
+        // (etwa weil seine Punktzahl frueher unlesbar war und er inzwischen wieder eingezahlt hat),
+        // gewinnt sein echtes Konto.
+        this.unreadable.forEach((key, values) -> YamlSections.restore(players, key, values));
         for (Map.Entry<UUID, Entry> entry : this.entries.entrySet()) {
             String base = "spieler." + entry.getKey();
             yaml.set(base + ".name", entry.getValue().name());
             yaml.set(base + ".punkte", entry.getValue().points());
+            PlayerStats stats = entry.getValue().stats();
+            if (!stats.isEmpty()) {
+                stats.write(yaml.createSection(base + ".statistik"));
+            }
             Saturation saturation = this.saturations.get(entry.getKey());
             if (saturation != null) {
                 // Kleinstwerte gar nicht erst schreiben - sie wuerden beim Laden ohnehin verworfen.
@@ -366,7 +404,6 @@ public final class PlayerData {
                 }
             }
         }
-        this.unreadable.forEach((key, values) -> YamlSections.restore(yaml, "spieler." + key, values));
         Path target = this.file.toPath();
         Path temp = target.resolveSibling(this.file.getName() + ".tmp");
         try {
