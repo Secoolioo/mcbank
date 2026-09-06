@@ -11,16 +11,17 @@ import org.bukkit.SoundCategory;
  * <p>Beide stehen hier nebeneinander, damit keine Aufrufstelle wissen muss, ob ein Spieler das
  * Pack geladen hat. Sie nennt den Klang, {@link Effects} entscheidet.
  *
- * <p>Die musikalischen Klaenge laufen ueber {@link SoundCategory#RECORDS} statt ueber MASTER.
- * MASTER laesst sich vom Spieler nicht gezielt herunterdrehen, nur zusammen mit allem anderen;
- * RECORDS ist der Regler fuer Jukebox und Notenbloecke, den auf diesem Server sonst niemand
- * braucht. Wer die Western-Musik nervig findet, dreht genau die weg und behoert Schritte,
- * Mobs und Kampfgeraeusche weiterhin.
+ * <p>Alles laeuft ueber {@link SoundCategory#MASTER}. Der erste Entwurf legte die musikalischen
+ * Klaenge auf RECORDS, damit sie sich einzeln herunterdrehen lassen - das war ein Fehler:
+ * RECORDS ist der Jukebox-Regler, und wer den auf null stehen hat, hoerte von der Ankuendigung
+ * nichts. Eine Ankuendigung, die sich lautlos wegdrehen laesst, ist keine. Wer es leiser mag,
+ * stellt {@code kopfgeld.lautstaerke} in der config.yml herunter - das gilt dann fuer alle
+ * und ist nachvollziehbar.
  */
 enum SoundCue {
 
     /** Blechhorn zur Plakat-Einblendung. */
-    PLAKAT("kopfgeld.plakat", SoundCategory.RECORDS, 1.0f, 1.0f,
+    PLAKAT("kopfgeld.plakat", SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.ITEM_GOAT_HORN_SOUND_0, 0.7f, 0.8f, 0L),
             new Note(Sound.BLOCK_NOTE_BLOCK_BASEDRUM, 0.5f, 0.55f, 0L)),
 
@@ -29,7 +30,7 @@ enum SoundCue {
             new Note(Sound.BLOCK_ANVIL_LAND, 0.35f, 1.9f, 0L)),
 
     /** Klapperschlange - hoert nur der Gejagte. */
-    GEJAGT("kopfgeld.gejagt", SoundCategory.RECORDS, 1.0f, 1.0f,
+    GEJAGT("kopfgeld.gejagt", SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.BLOCK_SCULK_SHRIEKER_SHRIEK, 0.6f, 0.9f, 0L)),
 
     /** Trockener Schuss in der Naehe. */
@@ -49,7 +50,7 @@ enum SoundCue {
      * Fis4, und D5, B4 und F4 - der absteigende B-Dur-Dreiklang, der klassische Western-
      * Abgang - liegen acht, vier und minus einen Halbton davon entfernt.
      */
-    MUNDHARMONIKA("kopfgeld.mundharmonika", SoundCategory.RECORDS, 1.0f, 1.0f,
+    MUNDHARMONIKA("kopfgeld.mundharmonika", SoundCategory.MASTER, 1.0f, 1.0f,
             new Note(Sound.BLOCK_NOTE_BLOCK_FLUTE, 0.8f, 1.5874f, 0L),
             new Note(Sound.BLOCK_NOTE_BLOCK_FLUTE, 0.8f, 1.2599f, 5L),
             new Note(Sound.BLOCK_NOTE_BLOCK_FLUTE, 0.8f, 0.9439f, 10L)),
@@ -73,7 +74,12 @@ enum SoundCue {
 
     /** Der Ratschen-Tick der Kiste. */
     UHR("kopfgeld.uhr", SoundCategory.MASTER, 0.8f, 1.0f,
-            new Note(Sound.BLOCK_LEVER_CLICK, 0.4f, 1.5f, 0L));
+            new Note(Sound.BLOCK_LEVER_CLICK, 0.4f, 1.5f, 0L)),
+
+    /** Blechhorn, wenn ein Kopfgeld kassiert wurde - das hoert der ganze Server. */
+    FANFARE("kopfgeld.fanfare", SoundCategory.MASTER, 0.85f, 1.0f,
+            new Note(Sound.ITEM_GOAT_HORN_SOUND_1, 0.7f, 0.9f, 0L),
+            new Note(Sound.BLOCK_NOTE_BLOCK_BASEDRUM, 0.45f, 0.6f, 0L));
 
     /** Ein Ton des Vanilla-Ersatzes, mit eigener Verzoegerung in Ticks. */
     record Note(Sound sound, float volume, float pitch, long delayTicks) {

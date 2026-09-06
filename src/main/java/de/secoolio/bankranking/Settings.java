@@ -68,7 +68,7 @@ public final class Settings {
     private record BountyConfig(boolean enabled, double minStake, long postCooldown,
                                 long claimCooldown, boolean petCounts, boolean tabRed,
                                 boolean bossBar, boolean broadcast, boolean poster,
-                                long posterGap) {
+                                long posterGap, double volume) {
     }
 
     /** Die Werte rund um das Resourcepack, gebuendelt statt als weiterer Einzelparameter. */
@@ -121,6 +121,7 @@ public final class Settings {
     private final boolean bountyBroadcast;
     private final boolean bountyPoster;
     private final long bountyPosterGap;
+    private final double bountyVolume;
 
     private Settings(Map<ItemRarity, Double> rarityBase,
                      Map<Category, Double> categoryMultiplier,
@@ -179,6 +180,7 @@ public final class Settings {
         this.bountyBroadcast = bounty.broadcast();
         this.bountyPoster = bounty.poster();
         this.bountyPosterGap = bounty.posterGap();
+        this.bountyVolume = bounty.volume();
     }
 
     public static Settings load(ConfigurationSection c, Logger log) {
@@ -285,7 +287,8 @@ public final class Settings {
                 readFlag(c, "kopfgeld.bossbar", true, log),
                 readFlag(c, "kopfgeld.broadcast", true, log),
                 readFlag(c, "kopfgeld.plakat", true, log),
-                readSeconds(c, "kopfgeld.plakat-mindestabstand-sekunden", DEFAULT_POSTER_GAP, log));
+                readSeconds(c, "kopfgeld.plakat-mindestabstand-sekunden", DEFAULT_POSTER_GAP, log),
+                readFactor(c, "kopfgeld.lautstaerke", 1.0, log));
 
         return new Settings(rarity, multipliers, bonus, fallback, damping, materialBase, overrides,
                 npcName, npcDescription, confirmHead, toggles, sidebarEnabled, sidebarTitle,
@@ -600,6 +603,11 @@ public final class Settings {
     /** In Millisekunden. */
     public long bountyPosterGap() {
         return this.bountyPosterGap;
+    }
+
+    /** Grundlautstaerke aller Kopfgeld-Klaenge, zwischen 0 und 1. */
+    public double bountyVolume() {
+        return this.bountyVolume;
     }
 
     public String summaryLine() {

@@ -116,7 +116,7 @@ public final class BountyStakeGui implements BankWindow {
             lore.add(Messages.KOPFGELD_EINSATZ_LEER);
         } else {
             lore.add(Messages.KOPFGELD_EINSATZ_WERT
-                    .replace("<wert>", bounties.format(bounties.value(einsatz))));
+                    .replace("<wert>", bounties.reward(einsatz)));
         }
         if (abgelehnt > 0) {
             lore.add(Messages.KOPFGELD_EINSATZ_ABGELEHNT
@@ -136,7 +136,7 @@ public final class BountyStakeGui implements BankWindow {
             topfLore.add(Messages.KOPFGELD_ZIEL_KEIN_TOPF);
         } else {
             topfLore.add(Messages.KOPFGELD_ZIEL_TOPF
-                    .replace("<wert>", bounties.format(bounties.value(topf)))
+                    .replace("<wert>", bounties.reward(topf))
                     .replace("<einsaetze>", String.valueOf(topf.stakes().size())));
             for (Bounty.Stake stake : topf.stakes()) {
                 topfLore.add("<dark_gray>- <gray>" + stake.name());

@@ -18,17 +18,20 @@ import java.util.concurrent.Executors;
 
 import javax.imageio.ImageIO;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 /**
  * Besorgt Spielergesichter und haelt sie vor.
  *
- * <p>Die Adresse des Skins liefert der Server bereits mit dem Spielerprofil - Mojang muss also
- * nie gefragt werden. Geladen wird nur noch das Bild selbst, und zwar neben dem Serverpuls: eine
- * Ankuendigung darf nie an einem Netzproblem haengen bleiben.
+ * <p>Bei einem anwesenden Spieler liefert der Server die Adresse des Skins bereits mit dem
+ * Profil - Mojang muss also nie gefragt werden. Nur fuer einen Abwesenden wird das Profil
+ * einmal nachgeschlagen. Geladen wird immer neben dem Serverpuls: eine Ankuendigung darf nie
+ * an einem Netzproblem haengen bleiben.
  *
- * <p>Zwischengespeichert wird das fertige Gesicht, nicht das Bild. Ein Gesicht ist unveraenderlich
- * und darf an alle Spieler gleichzeitig geschickt werden.
+ * <p>Zwischengespeichert wird das fertige Gesicht, nicht das Bild. Ein Gesicht ist
+ * unveraenderlich und darf an alle Spieler gleichzeitig geschickt werden.
  */
 final class SkinFaces {
 
@@ -57,15 +60,42 @@ final class SkinFaces {
         return Optional.ofNullable(this.cache.get(id));
     }
 
-    /**
-     * Das Gesicht eines Spielers.
-     *
-     * <p>Liegt es vor und hat sich der Skin nicht geaendert, kommt es sofort. Sonst wird es
-     * neben dem Serverpuls geholt; scheitert das, kommt das Ersatzgesicht.
-     */
+    /** Das Gesicht eines anwesenden Spielers. */
     CompletableFuture<SkinFace> of(Player player) {
-        UUID id = player.getUniqueId();
-        URL skin = skinUrl(player);
+        return load(player.getUniqueId(), skinUrl(player.getPlayerProfile()));
+    }
+
+    /**
+     * Das Gesicht eines Spielers, der auch abgemeldet sein darf.
+     *
+     * <p>Ein Kopfgeld laesst sich auf jeden aussetzen, auch auf jemanden, der gerade nicht da
+     * ist - dann muss das Plakat trotzdem sein Gesicht zeigen. Fuer einen Abwesenden wird das
+     * Profil einmal bei Mojang nachgeschlagen; das kostet einen Netzzugriff und laeuft deshalb
+     * nebenher.
+     */
+    CompletableFuture<SkinFace> of(UUID id, String name) {
+        SkinFace bekannt = this.cache.get(id);
+        if (bekannt != null) {
+            return CompletableFuture.completedFuture(bekannt);
+        }
+        Player anwesend = Bukkit.getPlayer(id);
+        if (anwesend != null) {
+            return of(anwesend);
+        }
+        return CompletableFuture
+                .supplyAsync(() -> {
+                    try {
+                        return Bukkit.createProfile(id, name).update().join();
+                    } catch (Exception e) {
+                        return null;
+                    }
+                }, this.pool)
+                .thenCompose(profil -> load(id, skinUrl(profil)))
+                .exceptionally(fehler -> SkinFace.defaultFor(id));
+    }
+
+    /** Der eigentliche Ladeweg: Adresse pruefen, Bild holen, Gesicht auslesen. */
+    private CompletableFuture<SkinFace> load(UUID id, URL skin) {
         if (skin == null) {
             SkinFace ersatz = SkinFace.defaultFor(id);
             this.cache.put(id, ersatz);
@@ -103,10 +133,9 @@ final class SkinFaces {
         }
     }
 
-    private static URL skinUrl(Player player) {
+    private static URL skinUrl(PlayerProfile profil) {
         try {
-            var profil = player.getPlayerProfile();
-            return profil.hasTextures() ? profil.getTextures().getSkin() : null;
+            return profil != null && profil.hasTextures() ? profil.getTextures().getSkin() : null;
         } catch (Exception e) {
             return null;
         }

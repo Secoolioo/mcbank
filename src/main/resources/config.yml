@@ -78,6 +78,11 @@ kopfgeld:
   # So viele Sekunden nach dem letzten Plakat wird kein zweites gezeigt. Chat und Bossbar
   # kommen trotzdem - nur Klang und Bildschirmtext entfallen.
   plakat-mindestabstand-sekunden: 20
+  # Grundlautstaerke aller Kopfgeld-Klaenge, zwischen 0 und 1. 0 macht sie stumm, ohne Plakat
+  # und Partikel abzuschalten.
+  # Die Klaenge laufen ueber den Haupt-Lautstaerkeregler, nicht ueber den Jukebox-Regler:
+  # eine Ankuendigung, die sich lautlos wegdrehen laesst, waere keine.
+  lautstaerke: 1.0
 
 resourcepack:
   # Das Plugin bringt ein eigenes Resourcepack mit: es enthaelt die Grafik des WANTED-Plakats,

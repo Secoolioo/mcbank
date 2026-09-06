@@ -48,18 +48,22 @@ public final class Effects {
         if (!this.plugin.settings().bountyEnabled()) {
             return;
         }
+        float laut = (float) this.plugin.settings().bountyVolume();
+        if (laut <= 0.0f) {
+            return;
+        }
         if (this.plugin.hasPack(player)) {
-            player.playSound(at, cue.key(), cue.category(), cue.volume(), cue.pitch());
+            player.playSound(at, cue.key(), cue.category(), cue.volume() * laut, cue.pitch());
             return;
         }
         for (SoundCue.Note note : cue.fallback()) {
             if (note.delayTicks() == 0L) {
-                player.playSound(at, note.sound(), cue.category(), note.volume(), note.pitch());
+                player.playSound(at, note.sound(), cue.category(), note.volume() * laut, note.pitch());
             } else {
                 later(note.delayTicks(), () -> {
                     if (player.isOnline()) {
                         player.playSound(at, note.sound(), cue.category(),
-                                note.volume(), note.pitch());
+                                note.volume() * laut, note.pitch());
                     }
                 });
             }
@@ -148,6 +152,13 @@ public final class Effects {
         later(12L, () -> {
             if (killer.isOnline()) {
                 cue(killer, SoundCue.MUNDHARMONIKA);
+            }
+        });
+        // Und ein Horn fuer den ganzen Server: ein kassiertes Kopfgeld ist ein Ereignis,
+        // das auch die angeht, die nicht dabei waren.
+        later(20L, () -> {
+            for (Player zuhoerer : this.plugin.getServer().getOnlinePlayers()) {
+                cue(zuhoerer, SoundCue.FANFARE);
             }
         });
     }

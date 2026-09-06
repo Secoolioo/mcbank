@@ -50,15 +50,10 @@ public final class BountyListGui implements BankWindow {
         offen.sort(Comparator.comparingDouble((Bounty pot) -> -bounties.value(pot))
                 .thenComparing(Bounty::name, String.CASE_INSENSITIVE_ORDER));
 
-        double gesamt = 0.0;
-        for (Bounty pot : offen) {
-            gesamt += bounties.value(pot);
-        }
         this.inventory.setItem(INFO_SLOT, GuiItems.labelled(Material.WITHER_SKELETON_SKULL,
                 Messages.KOPFGELD_LISTE_NAME,
                 List.of(Messages.KOPFGELD_LISTE_KOPF
-                        .replace("<anzahl>", String.valueOf(offen.size()))
-                        .replace("<wert>", bounties.format(gesamt)))));
+                        .replace("<anzahl>", String.valueOf(offen.size())))));
 
         int index = 0;
         for (int row = 1; row <= 4 && index < offen.size(); row++) {
@@ -84,7 +79,7 @@ public final class BountyListGui implements BankWindow {
         BountyService bounties = this.plugin.bounties();
         List<String> lore = new ArrayList<>();
         lore.add(Messages.KOPFGELD_ZIEL_TOPF
-                .replace("<wert>", bounties.format(bounties.value(pot)))
+                .replace("<wert>", bounties.reward(pot))
                 .replace("<einsaetze>", String.valueOf(pot.stakes().size())));
         lore.add("");
         int gezeigt = 0;
@@ -94,7 +89,7 @@ public final class BountyListGui implements BankWindow {
                 break;
             }
             lore.add("<dark_gray>- <gray>" + stake.name() + " <dark_gray>"
-                    + bounties.format(bounties.value(stake.items())));
+                    + bounties.reward(stake.items()));
         }
         lore.add("");
         lore.add(Messages.KOPFGELD_ZIEL_KLICK);

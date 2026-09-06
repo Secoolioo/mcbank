@@ -103,15 +103,31 @@ final class BountyItems {
         Map<Material, Integer> sortiert = new EnumMap<>(Material.class);
         sortiert.putAll(items);
         for (Map.Entry<Material, Integer> e : sortiert.entrySet()) {
-            int rest = e.getValue();
-            int hoechst = Math.max(1, e.getKey().getMaxStackSize());
-            while (rest > 0) {
-                int jetzt = Math.min(rest, hoechst);
-                stapel.add(ItemStack.of(e.getKey(), jetzt));
-                rest -= jetzt;
+            for (int groesse : split(e.getValue(), e.getKey().getMaxStackSize())) {
+                stapel.add(ItemStack.of(e.getKey(), groesse));
             }
         }
         return stapel;
+    }
+
+    /**
+     * Zerlegt eine Stueckzahl in Stapelgroessen.
+     *
+     * <p>Als eigene Methode, weil {@code Material#getMaxStackSize()} die Registry des Servers
+     * braucht und die Rechnung sich sonst nicht pruefen liesse.
+     */
+    static int[] split(int anzahl, int hoechstStapel) {
+        int hoechst = Math.max(1, hoechstStapel);
+        int voll = anzahl / hoechst;
+        int rest = anzahl % hoechst;
+        int[] groessen = new int[voll + (rest > 0 ? 1 : 0)];
+        for (int i = 0; i < voll; i++) {
+            groessen[i] = hoechst;
+        }
+        if (rest > 0) {
+            groessen[voll] = rest;
+        }
+        return groessen;
     }
 
     /** Die Materialien in fester Reihenfolge, damit Anzeigen nicht springen. */
@@ -124,6 +140,71 @@ final class BountyItems {
         reihe.add(Material.DIAMOND_BLOCK);
         reihe.add(Material.DIAMOND);
         return reihe;
+    }
+
+    /**
+     * Deutsche Namen der sechs Einsatz-Materialien, einmal in Einzahl und einmal in Mehrzahl.
+     *
+     * <p>Der Sinn: die Belohnung soll dastehen als das, was sie ist. Eine abstrakte Punktzahl
+     * beantwortet die Frage "was bekomme ich?" nicht - "32 Diamanten" beantwortet sie sofort.
+     */
+    private static final Map<Material, String[]> NAMEN = Map.of(
+            Material.EMERALD, new String[]{"Smaragd", "Smaragde"},
+            Material.EMERALD_BLOCK, new String[]{"Smaragdblock", "Smaragdbloecke"},
+            Material.DIAMOND, new String[]{"Diamant", "Diamanten"},
+            Material.DIAMOND_BLOCK, new String[]{"Diamantblock", "Diamantbloecke"},
+            Material.NETHERITE_INGOT, new String[]{"Netherit-Barren", "Netherit-Barren"},
+            Material.NETHERITE_BLOCK, new String[]{"Netheritblock", "Netheritbloecke"});
+
+    /** Wie wertvoll ein Material im Vergleich zu den anderen ist - fuer die Reihenfolge. */
+    private static final List<Material> RANG = List.of(
+            Material.NETHERITE_BLOCK, Material.NETHERITE_INGOT,
+            Material.EMERALD_BLOCK, Material.DIAMOND_BLOCK,
+            Material.EMERALD, Material.DIAMOND);
+
+    /**
+     * Die Belohnung als lesbarer Text, etwa "3 Netheritbloecke und 32 Diamanten".
+     *
+     * <p>Das Wertvollste zuerst. Mehr als zwei Sorten werden zusammengefasst, sonst wird die
+     * Zeile laenger als der Platz, den sie ueberall haben muss.
+     */
+    static String describe(Map<Material, Integer> items) {
+        List<String> teile = new java.util.ArrayList<>();
+        int weitere = 0;
+        for (Material material : RANG) {
+            Integer anzahl = items.get(material);
+            if (anzahl == null || anzahl <= 0) {
+                continue;
+            }
+            if (teile.size() >= 2) {
+                weitere += anzahl;
+                continue;
+            }
+            String[] name = NAMEN.get(material);
+            teile.add(anzahl + " " + (anzahl == 1 ? name[0] : name[1]));
+        }
+        if (teile.isEmpty()) {
+            return "nichts";
+        }
+        if (weitere > 0) {
+            teile.add(weitere + " weitere");
+        }
+        if (teile.size() == 1) {
+            return teile.get(0);
+        }
+        return String.join(", ", teile.subList(0, teile.size() - 1))
+                + " und " + teile.get(teile.size() - 1);
+    }
+
+    /** Das wertvollste Material im Topf - das Sinnbild der Belohnung. */
+    static Material headline(Map<Material, Integer> items) {
+        for (Material material : RANG) {
+            Integer anzahl = items.get(material);
+            if (anzahl != null && anzahl > 0) {
+                return material;
+            }
+        }
+        return null;
     }
 
     /** Der Schluessel, unter dem ein Material in der YAML-Datei steht. */

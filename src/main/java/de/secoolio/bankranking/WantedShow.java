@@ -62,12 +62,15 @@ final class WantedShow {
     /**
      * Zeigt allen Online-Spielern das Plakat.
      *
-     * @param face   das Gesicht des Gejagten; darf {@code null} sein, dann bleibt der Rahmen leer
-     * @param hunted der Gejagte
-     * @param placer wer ausgesetzt hat
-     * @param amount der Betrag, bereits formatiert
+     * @param face       das Gesicht des Gejagten
+     * @param target     seine Kennung; er muss nicht anwesend sein
+     * @param targetName sein Name
+     * @param placer     wer ausgesetzt hat
+     * @param pot        der Topf, aus dem die Belohnung abgelesen wird
      */
-    void announce(SkinFace face, Player hunted, String placer, String amount) {
+    void announce(SkinFace face, java.util.UUID target, String targetName, String placer,
+                  Bounty pot) {
+        String amount = this.plugin.bounties().reward(pot);
         Settings settings = this.plugin.settings();
         long jetzt = System.currentTimeMillis();
         boolean zeigen = settings.bountyPoster()
@@ -76,13 +79,13 @@ final class WantedShow {
             this.lastShown = jetzt;
         }
 
-        Component chat = chatLine(hunted, amount);
+        Component chat = chatLine(target, targetName, amount);
         Component titelSpar = Messages.mm(Messages.KOPFGELD_TITEL_TEXT);
         Component unterSpar = Messages.mm(Messages.KOPFGELD_UNTERTITEL_TEXT,
-                Placeholder.unparsed("name", hunted.getName()),
+                Placeholder.unparsed("name", targetName),
                 Placeholder.unparsed("wert", amount));
         Component plakat = this.poster == null || face == null
-                ? null : this.poster.render(face, hunted.getName(), amount);
+                ? null : this.poster.render(face, targetName, amount);
 
         for (Player zuschauer : this.plugin.getServer().getOnlinePlayers()) {
             zuschauer.sendMessage(chat);
@@ -116,10 +119,10 @@ final class WantedShow {
      * <p>Der Tag {@code <head:...>} ist Vanilla und braucht kein Resourcepack - jeder sieht
      * hier also das richtige Gesicht, auch wer das Pack abgelehnt hat.
      */
-    private Component chatLine(Player hunted, String amount) {
-        String kopf = "<head:'" + hunted.getUniqueId() + "'>";
+    private Component chatLine(java.util.UUID target, String targetName, String amount) {
+        String kopf = "<head:'" + target + "'>";
         return Messages.mm(Messages.PREFIX + Messages.KOPFGELD_PLAKAT_CHAT.replace("<kopf>", kopf),
-                Placeholder.unparsed("name", hunted.getName()),
+                Placeholder.unparsed("name", targetName),
                 Placeholder.unparsed("wert", amount));
     }
 

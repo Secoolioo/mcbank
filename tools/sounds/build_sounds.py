@@ -33,8 +33,8 @@ SEED = 20260906
 
 # ------------------------------------------------------------------ Klaenge
 
-def plakat(rng, raum):
-    """Blechhorn-Fanfare fuer die Plakat-Einblendung. Stereo, 2,6 s.
+def fanfare(rng, raum):
+    """Blechhorn-Fanfare. Stereo, 2,6 s.
 
     Drei Stimmen auf B1, F2 und B2; die dritte spaeter und leicht verstimmt, damit es nach
     zwei Blaesern klingt und nicht nach einem verdoppelten.
@@ -237,7 +237,7 @@ def kiste_weg(rng, raum):
 ENDPORTAL_LUFS = -15.8
 
 KLAENGE = [
-    ("plakat", plakat, 2, ENDPORTAL_LUFS, 3.6),
+    ("fanfare", fanfare, 2, ENDPORTAL_LUFS, 3.6),
     ("nagel", nagel, 1, None, 0.40),
     ("gejagt", gejagt, 1, -19.0, 2.2),
     ("schuss", schuss, 1, -16.5, 0.90),
@@ -253,11 +253,19 @@ KLAENGE = [
 # Spitzenpegel fuer die drei zu kurzen Klaenge.
 KURZ_SPITZE = {"nagel": -3.0, "uhr": -9.0, "hahn": -7.0}
 
+# Klaenge, die im Pack liegen, aber nicht hier entstehen: vom Betreiber geliefertes Material.
+# Sie werden nicht angefasst, muessen aber in sounds.json stehen.
+MITGELIEFERT = [
+    # Name, Kanaele, ob vorgeladen wird
+    ("plakat", 2, True),
+]
+
 # Untertitel je Klang. Sie sind die einzige Barrierefreiheits-Massnahme dieser Funktion:
 # ein gehoerloser Spieler erfaehrt ueber "Klapperschlange rasselt", dass auf ihn ein
 # Kopfgeld ausgesetzt ist. Deshalb hat jeder Klang einen, auch die unwichtigen.
 UNTERTITEL = {
     "plakat":        ("Steckbrief wird angeschlagen", "Wanted poster goes up"),
+    "fanfare":       ("Horn schallt ueber das Land", "Horn sounds across the land"),
     "nagel":         ("Nagel wird eingeschlagen", "Nail driven in"),
     "gejagt":        ("Klapperschlange rasselt", "Rattlesnake rattles"),
     "schuss":        ("Schuss faellt", "Gunshot"),
@@ -277,7 +285,7 @@ REICHWEITE = {"nagel": 16, "gejagt": 8, "schuss": 16, "schuss_fern": 24,
               "muenzen": 16, "uhr": 12, "kiste_weg": 16}
 
 # Beim ersten Abspielen darf es nicht stocken - diese drei sitzen auf dem Moment.
-VORLADEN = {"plakat", "nagel", "schuss"}
+VORLADEN = {"plakat", "fanfare", "nagel", "schuss"}
 
 
 def schreibe_wav(pfad, signal, kanaele):
@@ -411,7 +419,9 @@ def schreibe_sounds_json(namensraum_ordner):
     vorangestellte bankranking: sucht der Client in assets/minecraft und findet nichts.
     """
     eintraege = {}
-    for name, _, kanaele, _, _ in KLAENGE:
+    alle = [(name, kanaele) for name, _, kanaele, _, _ in KLAENGE]
+    alle += [(name, kanaele) for name, kanaele, _ in MITGELIEFERT]
+    for name, kanaele in sorted(alle):
         klang = {
             "name": "bankranking:kopfgeld/" + name,
             "volume": 1.0,
@@ -434,8 +444,9 @@ def schreibe_sounds_json(namensraum_ordner):
     lang = os.path.join(namensraum_ordner, "lang")
     os.makedirs(lang, exist_ok=True)
     for datei, spalte in (("de_de.json", 0), ("en_us.json", 1)):
+        namen = [n for n, _, _, _, _ in KLAENGE] + [n for n, _, _ in MITGELIEFERT]
         texte = {"subtitles.bankranking.kopfgeld." + n: UNTERTITEL[n][spalte]
-                 for n, _, _, _, _ in KLAENGE}
+                 for n in sorted(namen)}
         with open(os.path.join(lang, datei), "w", encoding="utf-8") as f:
             json.dump(texte, f, ensure_ascii=False, indent=2)
             f.write("\n")
@@ -447,6 +458,7 @@ def pruefe_sounds_json(namensraum_ordner):
     with open(os.path.join(namensraum_ordner, "sounds.json"), encoding="utf-8") as f:
         eintraege = json.load(f)
     erwartet = {"kopfgeld." + n for n, _, _, _, _ in KLAENGE}
+    erwartet |= {"kopfgeld." + n for n, _, _ in MITGELIEFERT}
     fehler = []
     if set(eintraege) != erwartet:
         fehler.append("Ereignisse weichen ab: %s" % (set(eintraege) ^ erwartet))
@@ -467,6 +479,16 @@ def pruefe_sounds_json(namensraum_ordner):
             with open(os.path.join(namensraum_ordner, "lang", datei), encoding="utf-8") as f:
                 if eintrag["subtitle"] not in json.load(f):
                     fehler.append("%s: Untertitel fehlt in %s" % (schluessel, datei))
+    benutzt = set()
+    for eintrag in eintraege.values():
+        for klang in eintrag["sounds"]:
+            benutzt.add(klang["name"].split(":", 1)[1] + ".ogg")
+    ordner = os.path.join(namensraum_ordner, "sounds", "kopfgeld")
+    if os.path.isdir(ordner):
+        for datei in sorted(os.listdir(ordner)):
+            if datei.endswith(".ogg") and ("kopfgeld/" + datei) not in benutzt:
+                fehler.append("%s wird von keinem Eintrag benutzt - Leiche im Pack" % datei)
+
     if fehler:
         raise SystemExit("sounds.json ist fehlerhaft:\n  " + "\n  ".join(fehler))
     print("sounds.json geprueft: %d Ereignisse, alle Dateien und Untertitel vorhanden"

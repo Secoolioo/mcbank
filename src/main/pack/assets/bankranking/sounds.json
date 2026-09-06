@@ -1,13 +1,71 @@
 {
-  "kopfgeld.plakat": {
-    "subtitle": "subtitles.bankranking.kopfgeld.plakat",
+  "kopfgeld.fanfare": {
+    "subtitle": "subtitles.bankranking.kopfgeld.fanfare",
     "sounds": [
       {
-        "name": "bankranking:kopfgeld/plakat",
+        "name": "bankranking:kopfgeld/fanfare",
         "volume": 1.0,
         "pitch": 1.0,
         "stream": false,
         "preload": true
+      }
+    ]
+  },
+  "kopfgeld.gejagt": {
+    "subtitle": "subtitles.bankranking.kopfgeld.gejagt",
+    "sounds": [
+      {
+        "name": "bankranking:kopfgeld/gejagt",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "stream": false,
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "kopfgeld.hahn": {
+    "subtitle": "subtitles.bankranking.kopfgeld.hahn",
+    "sounds": [
+      {
+        "name": "bankranking:kopfgeld/hahn",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "stream": false
+      }
+    ]
+  },
+  "kopfgeld.kiste_weg": {
+    "subtitle": "subtitles.bankranking.kopfgeld.kiste_weg",
+    "sounds": [
+      {
+        "name": "bankranking:kopfgeld/kiste_weg",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "stream": false,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "kopfgeld.muenzen": {
+    "subtitle": "subtitles.bankranking.kopfgeld.muenzen",
+    "sounds": [
+      {
+        "name": "bankranking:kopfgeld/muenzen",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "stream": false,
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "kopfgeld.mundharmonika": {
+    "subtitle": "subtitles.bankranking.kopfgeld.mundharmonika",
+    "sounds": [
+      {
+        "name": "bankranking:kopfgeld/mundharmonika",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "stream": false
       }
     ]
   },
@@ -24,15 +82,15 @@
       }
     ]
   },
-  "kopfgeld.gejagt": {
-    "subtitle": "subtitles.bankranking.kopfgeld.gejagt",
+  "kopfgeld.plakat": {
+    "subtitle": "subtitles.bankranking.kopfgeld.plakat",
     "sounds": [
       {
-        "name": "bankranking:kopfgeld/gejagt",
+        "name": "bankranking:kopfgeld/plakat",
         "volume": 1.0,
         "pitch": 1.0,
         "stream": false,
-        "attenuation_distance": 8
+        "preload": true
       }
     ]
   },
@@ -61,26 +119,14 @@
       }
     ]
   },
-  "kopfgeld.mundharmonika": {
-    "subtitle": "subtitles.bankranking.kopfgeld.mundharmonika",
+  "kopfgeld.sporen": {
+    "subtitle": "subtitles.bankranking.kopfgeld.sporen",
     "sounds": [
       {
-        "name": "bankranking:kopfgeld/mundharmonika",
+        "name": "bankranking:kopfgeld/sporen",
         "volume": 1.0,
         "pitch": 1.0,
         "stream": false
-      }
-    ]
-  },
-  "kopfgeld.muenzen": {
-    "subtitle": "subtitles.bankranking.kopfgeld.muenzen",
-    "sounds": [
-      {
-        "name": "bankranking:kopfgeld/muenzen",
-        "volume": 1.0,
-        "pitch": 1.0,
-        "stream": false,
-        "attenuation_distance": 16
       }
     ]
   },
@@ -93,40 +139,6 @@
         "pitch": 1.0,
         "stream": false,
         "attenuation_distance": 12
-      }
-    ]
-  },
-  "kopfgeld.hahn": {
-    "subtitle": "subtitles.bankranking.kopfgeld.hahn",
-    "sounds": [
-      {
-        "name": "bankranking:kopfgeld/hahn",
-        "volume": 1.0,
-        "pitch": 1.0,
-        "stream": false
-      }
-    ]
-  },
-  "kopfgeld.sporen": {
-    "subtitle": "subtitles.bankranking.kopfgeld.sporen",
-    "sounds": [
-      {
-        "name": "bankranking:kopfgeld/sporen",
-        "volume": 1.0,
-        "pitch": 1.0,
-        "stream": false
-      }
-    ]
-  },
-  "kopfgeld.kiste_weg": {
-    "subtitle": "subtitles.bankranking.kopfgeld.kiste_weg",
-    "sounds": [
-      {
-        "name": "bankranking:kopfgeld/kiste_weg",
-        "volume": 1.0,
-        "pitch": 1.0,
-        "stream": false,
-        "attenuation_distance": 16
       }
     ]
   }

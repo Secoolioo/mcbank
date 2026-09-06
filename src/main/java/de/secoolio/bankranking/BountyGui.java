@@ -115,7 +115,7 @@ public final class BountyGui implements BankWindow {
         lore.add(ziel.online() ? Messages.KOPFGELD_ZIEL_ONLINE : Messages.KOPFGELD_ZIEL_OFFLINE);
         if (gejagt) {
             lore.add(Messages.KOPFGELD_ZIEL_TOPF
-                    .replace("<wert>", bounties.format(bounties.value(topf)))
+                    .replace("<wert>", bounties.reward(topf))
                     .replace("<einsaetze>", String.valueOf(topf.stakes().size())));
         } else {
             lore.add(Messages.KOPFGELD_ZIEL_KEIN_TOPF);

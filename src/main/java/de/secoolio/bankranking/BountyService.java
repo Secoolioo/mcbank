@@ -78,6 +78,33 @@ public final class BountyService {
         return Scorer.format(wert);
     }
 
+    /**
+     * Die Belohnung als lesbarer Text - die tatsaechlichen Gegenstaende.
+     *
+     * <p>Frueher stand hier eine Punktzahl. Die war irrefuehrend: sie sah aus wie ein
+     * Bankguthaben, entsprach aber nicht dem, was die Bank fuer dieselben Gegenstaende
+     * gutschreiben wuerde - dort greifen noch Wohlstands-Bremse und Marktsaettigung. Und sie
+     * beantwortete die einzige Frage nicht, die ein Spieler hat: was bekomme ich?
+     */
+    public String reward(Bounty pot) {
+        return pot == null ? "nichts" : BountyItems.describe(pot.total());
+    }
+
+    public String reward(Map<Material, Integer> items) {
+        return BountyItems.describe(items);
+    }
+
+    /**
+     * Der Mindesteinsatz, ausgedrueckt in Diamanten.
+     *
+     * <p>Auch hier keine Punktzahl: "zwei Diamanten" ist eine Anweisung, "40" ist ein Raetsel.
+     */
+    public String minStakeText() {
+        double proDiamant = Math.max(0.01, baseValue(Material.DIAMOND));
+        int diamanten = (int) Math.ceil(this.plugin.settings().bountyMinStake() / proDiamant);
+        return diamanten <= 1 ? "1 Diamant" : diamanten + " Diamanten";
+    }
+
     // -------------------------------------------------------------- Aussetzen
 
     /** Darf auf diesen Spieler gerade ein Kopfgeld gesetzt werden? */
@@ -130,10 +157,10 @@ public final class BountyService {
 
         Bounty topf = this.data.pot(target);
         boolean ersterEinsatz = topf.stakes().size() == 1;
-        String gesamt = format(value(topf));
+        String gesamt = reward(topf);
 
         this.plugin.send(placer, ersterEinsatz ? Messages.KOPFGELD_AUSGESETZT : Messages.KOPFGELD_ERHOEHT,
-                Placeholder.unparsed("wert", ersterEinsatz ? format(wert) : gesamt),
+                Placeholder.unparsed("wert", ersterEinsatz ? reward(items) : gesamt),
                 Placeholder.unparsed("name", targetName));
 
         Player gejagter = this.plugin.getServer().getPlayer(target);
@@ -150,23 +177,22 @@ public final class BountyService {
         }
 
         refreshAll(target);
-        announce(gejagter, placer.getName(), gesamt);
+        announce(target, targetName, placer.getName(), topf);
         return PlaceResult.OK;
     }
 
-    /** Zeigt das Plakat, sobald das Gesicht vorliegt - hoechstens aber zwei Sekunden lang. */
-    private void announce(Player gejagter, String placer, String betrag) {
-        if (gejagter == null) {
-            return;
-        }
-        this.faces.of(gejagter).completeOnTimeout(SkinFace.defaultFor(gejagter.getUniqueId()),
-                        2, java.util.concurrent.TimeUnit.SECONDS)
+    /**
+     * Zeigt das Plakat, sobald das Gesicht vorliegt - hoechstens aber zwei Sekunden lang.
+     *
+     * <p>Auch dann, wenn der Gejagte gerade nicht da ist. Ein Kopfgeld auf einen Abwesenden ist
+     * ausdruecklich erlaubt, und dass dann niemand ein Plakat sah, war ein Fehler: die
+     * Ankuendigung richtet sich an alle anderen, nicht an ihn.
+     */
+    private void announce(UUID target, String targetName, String placer, Bounty topf) {
+        this.faces.of(target, targetName)
+                .completeOnTimeout(SkinFace.defaultFor(target), 2, java.util.concurrent.TimeUnit.SECONDS)
                 .thenAccept(gesicht -> this.plugin.getServer().getScheduler().runTask(this.plugin,
-                        () -> {
-                            if (gejagter.isOnline()) {
-                                this.show.announce(gesicht, gejagter, placer, betrag);
-                            }
-                        }));
+                        () -> this.show.announce(gesicht, target, targetName, placer, topf)));
     }
 
     // -------------------------------------------------------------- Kassieren
@@ -187,7 +213,7 @@ public final class BountyService {
             return;
         }
         long jetzt = System.currentTimeMillis();
-        String betrag = format(value(topf));
+        String betrag = reward(topf);
 
         switch (BountyRules.check(topf, killer.getUniqueId(), jetzt,
                 this.plugin.settings().bountyClaimCooldown())) {
@@ -291,7 +317,7 @@ public final class BountyService {
     public void refresh(Player player) {
         Bounty topf = this.data.pot(player.getUniqueId());
         boolean gejagt = topf != null && !topf.isEmpty();
-        String betrag = gejagt ? format(value(topf)) : "0";
+        String betrag = gejagt ? reward(topf) : "";
 
         if (this.plugin.settings().bountyTabRed()) {
             if (gejagt) {
