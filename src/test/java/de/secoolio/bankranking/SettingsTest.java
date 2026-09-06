@@ -55,8 +55,9 @@ class SettingsTest {
         assertEquals(Settings.DEFAULT_FALLBACK_VALUE, settings.fallbackValue(), 1e-9);
         assertEquals(Settings.DEFAULT_NPC_NAME, settings.npcName());
         // vier Seltenheits-Faktoren, sechs Kategorien, Verzauberungs-Bonus, Standardwert,
-        // je drei Zahlenwerte der beiden Bremsen und die Länge des Fortschrittsbalkens
-        assertEquals(19, log.warnings().size(), () -> "Warnungen: " + log.warnings());
+        // je drei Zahlenwerte der beiden Bremsen, die Länge des Fortschrittsbalkens sowie
+        // Mindesteinsatz, beide Kopfgeld-Sperren und der Plakat-Mindestabstand
+        assertEquals(23, log.warnings().size(), () -> "Warnungen: " + log.warnings());
     }
 
     @Test

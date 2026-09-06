@@ -45,6 +45,40 @@ effekte:
   # Meldung an alle Spieler im Chat, wenn jemand einen Rang aufsteigt.
   aufstieg-broadcast: true
 
+kopfgeld:
+  # Setze ein Kopfgeld auf einen Mitspieler aus. Wer ihn toetet, bekommt den Einsatz.
+  # Mehrere Einsaetze auf dieselbe Person sammeln sich in einem Topf, und ein Kopfgeld
+  # verfaellt nie. Eingesetzt werden koennen nur Smaragde, Diamanten und Netherite -
+  # jeweils auch als Block, aber nur unverzaubert und unbenannt.
+  aktiv: true
+  # Mindestwert eines einzelnen Einsatzes, gerechnet mit den Grundwerten der Bank
+  # (Diamant 20, Smaragd 25, Netherite-Barren 200, Bloecke das Neunfache).
+  # 20.0 entspricht einem Diamanten. Verhindert Plakat-Spam mit Kleinstbetraegen.
+  mindest-einsatz: 20.0
+  # Nach einer Auszahlung: so viele Sekunden lang kein neues Kopfgeld auf dasselbe Opfer.
+  # Verhindert das Nachlegen im Respawn-Kreis. 0 schaltet die Sperre ab.
+  aussetz-sperre-sekunden: 300
+  # Nach einer Auszahlung: so lange kassiert derselbe Killer bei demselben Opfer nicht
+  # noch einmal. Der Topf bleibt in dieser Zeit stehen.
+  kassier-sperre-sekunden: 900
+  # Zaehlt ein Kill durch ein gezaehmtes Tier als eigener Kill?
+  # Standard aus: eine Wolfsmeute waere sonst eine Kopfgeld-Farm, die von allein zuschlaegt.
+  haustier-zaehlt: false
+  # Roter Name in der TAB-Liste, solange ein Kopfgeld laeuft.
+  # Hinweis: Setzt ein anderes Plugin ebenfalls TAB-Namen, wird seiner fuer die Dauer des
+  # Kopfgelds ueberschrieben und danach wiederhergestellt.
+  tab-rot: true
+  # Dauerhafter Balken am oberen Bildrand - nur fuer den Gejagten selbst.
+  bossbar: true
+  # Meldung im Chat an alle beim Aussetzen und beim Auszahlen.
+  broadcast: true
+  # Das bildschirmfuellende Plakat bei allen Spielern, wenn ein Kopfgeld ausgesetzt wird.
+  # Ohne Resourcepack erscheint stattdessen die Sparfassung aus Titel und Chatzeile.
+  plakat: true
+  # So viele Sekunden nach dem letzten Plakat wird kein zweites gezeigt. Chat und Bossbar
+  # kommen trotzdem - nur Klang und Bildschirmtext entfallen.
+  plakat-mindestabstand-sekunden: 20
+
 resourcepack:
   # Das Plugin bringt ein eigenes Resourcepack mit: es enthaelt die Grafik des WANTED-Plakats,
   # die Pixelschrift fuer das Spielergesicht und eigene Western-Klaenge.

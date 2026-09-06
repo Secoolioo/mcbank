@@ -48,10 +48,28 @@ public final class Settings {
     /** Der senkrechte Strich ist in jeder Schrift vorhanden, auch ohne Resourcepack. */
     public static final String DEFAULT_BAR_SYMBOL = "|";
     public static final double DEFAULT_BAR_LENGTH = 10.0;
+    /** Mindestwert eines Kopfgeld-Einsatzes: der Gegenwert eines Diamanten. */
+    public static final double DEFAULT_MIN_STAKE = 20.0;
+    /** Nach einer Auszahlung so lange kein neues Kopfgeld auf dasselbe Opfer. */
+    public static final double DEFAULT_POST_COOLDOWN = 300.0;
+    /** Nach einer Auszahlung kassiert derselbe Killer beim selben Opfer so lange nicht. */
+    public static final double DEFAULT_CLAIM_COOLDOWN = 900.0;
+    /** So lange nach einem Plakat wird kein zweites gezeigt. */
+    public static final double DEFAULT_POSTER_GAP = 20.0;
+    /** Laenger als eine Woche wird keine Sperre - ein Tippfehler soll nicht ewig wirken. */
+    private static final double MAX_COOLDOWN_SECONDS = 7 * 24 * 3600.0;
+
     /** Port des eingebauten Webservers, ueber den das Resourcepack ausgeliefert wird. */
     public static final int DEFAULT_PACK_PORT = 8123;
     public static final String DEFAULT_PACK_PROMPT =
             "<gold>Fuer die Kopfgeld-Steckbriefe braucht dieser Server ein Resourcepack.";
+
+    /** Die Werte rund um das Kopfgeld, gebuendelt statt als weiterer Einzelparameter. */
+    private record BountyConfig(boolean enabled, double minStake, long postCooldown,
+                                long claimCooldown, boolean petCounts, boolean tabRed,
+                                boolean bossBar, boolean broadcast, boolean poster,
+                                long posterGap) {
+    }
 
     /** Die Werte rund um das Resourcepack, gebuendelt statt als weiterer Einzelparameter. */
     private record Pack(boolean enabled, int port, String address, String prompt) {
@@ -93,6 +111,16 @@ public final class Settings {
     private final int packPort;
     private final String packAddress;
     private final String packPrompt;
+    private final boolean bountyEnabled;
+    private final double bountyMinStake;
+    private final long bountyPostCooldown;
+    private final long bountyClaimCooldown;
+    private final boolean bountyPetCounts;
+    private final boolean bountyTabRed;
+    private final boolean bountyBossBar;
+    private final boolean bountyBroadcast;
+    private final boolean bountyPoster;
+    private final long bountyPosterGap;
 
     private Settings(Map<ItemRarity, Double> rarityBase,
                      Map<Category, Double> categoryMultiplier,
@@ -109,7 +137,8 @@ public final class Settings {
                      String sidebarTitle,
                      String barSymbol,
                      int barLength,
-                     Pack pack) {
+                     Pack pack,
+                     BountyConfig bounty) {
         this.rarityBase = rarityBase;
         this.categoryMultiplier = categoryMultiplier;
         this.enchantBonusPerLevel = enchantBonusPerLevel;
@@ -140,6 +169,16 @@ public final class Settings {
         this.packPort = pack.port();
         this.packAddress = pack.address();
         this.packPrompt = pack.prompt();
+        this.bountyEnabled = bounty.enabled();
+        this.bountyMinStake = bounty.minStake();
+        this.bountyPostCooldown = bounty.postCooldown();
+        this.bountyClaimCooldown = bounty.claimCooldown();
+        this.bountyPetCounts = bounty.petCounts();
+        this.bountyTabRed = bounty.tabRed();
+        this.bountyBossBar = bounty.bossBar();
+        this.bountyBroadcast = bounty.broadcast();
+        this.bountyPoster = bounty.poster();
+        this.bountyPosterGap = bounty.posterGap();
     }
 
     public static Settings load(ConfigurationSection c, Logger log) {
@@ -236,9 +275,21 @@ public final class Settings {
                 readText(c, "resourcepack.adresse", "").trim(),
                 readMiniMessage(c, "resourcepack.aufforderung", DEFAULT_PACK_PROMPT, log));
 
+        BountyConfig bounty = new BountyConfig(
+                readFlag(c, "kopfgeld.aktiv", true, log),
+                readPositive(c, "kopfgeld.mindest-einsatz", DEFAULT_MIN_STAKE, log),
+                readSeconds(c, "kopfgeld.aussetz-sperre-sekunden", DEFAULT_POST_COOLDOWN, log),
+                readSeconds(c, "kopfgeld.kassier-sperre-sekunden", DEFAULT_CLAIM_COOLDOWN, log),
+                readFlag(c, "kopfgeld.haustier-zaehlt", false, log),
+                readFlag(c, "kopfgeld.tab-rot", true, log),
+                readFlag(c, "kopfgeld.bossbar", true, log),
+                readFlag(c, "kopfgeld.broadcast", true, log),
+                readFlag(c, "kopfgeld.plakat", true, log),
+                readSeconds(c, "kopfgeld.plakat-mindestabstand-sekunden", DEFAULT_POSTER_GAP, log));
+
         return new Settings(rarity, multipliers, bonus, fallback, damping, materialBase, overrides,
                 npcName, npcDescription, confirmHead, toggles, sidebarEnabled, sidebarTitle,
-                barSymbol, barLength, pack);
+                barSymbol, barLength, pack, bounty);
     }
 
     private static double defaultRarity(ItemRarity rarity) {
@@ -269,6 +320,21 @@ public final class Settings {
             return fallback;
         }
         return value;
+    }
+
+    /**
+     * Eine Sperrfrist in Sekunden, umgerechnet in Millisekunden.
+     *
+     * <p>Auf eine Woche gedeckelt: ein Tippfehler soll keine faktisch ewige Sperre erzeugen.
+     */
+    private static long readSeconds(ConfigurationSection c, String path, double fallback, Logger log) {
+        double sekunden = readPositive(c, path, fallback, log);
+        if (sekunden > MAX_COOLDOWN_SECONDS) {
+            log.warning("config.yml: '" + path + "' ist mit " + sekunden
+                    + " Sekunden unrealistisch lang - es gilt eine Woche");
+            sekunden = MAX_COOLDOWN_SECONDS;
+        }
+        return Math.round(sekunden * 1000.0);
     }
 
     /**
@@ -491,6 +557,49 @@ public final class Settings {
 
     public String packPrompt() {
         return this.packPrompt;
+    }
+
+    public boolean bountyEnabled() {
+        return this.bountyEnabled;
+    }
+
+    public double bountyMinStake() {
+        return this.bountyMinStake;
+    }
+
+    /** In Millisekunden. */
+    public long bountyPostCooldown() {
+        return this.bountyPostCooldown;
+    }
+
+    /** In Millisekunden. */
+    public long bountyClaimCooldown() {
+        return this.bountyClaimCooldown;
+    }
+
+    public boolean bountyPetCounts() {
+        return this.bountyPetCounts;
+    }
+
+    public boolean bountyTabRed() {
+        return this.bountyTabRed;
+    }
+
+    public boolean bountyBossBar() {
+        return this.bountyBossBar;
+    }
+
+    public boolean bountyBroadcast() {
+        return this.bountyBroadcast;
+    }
+
+    public boolean bountyPoster() {
+        return this.bountyPoster;
+    }
+
+    /** In Millisekunden. */
+    public long bountyPosterGap() {
+        return this.bountyPosterGap;
     }
 
     public String summaryLine() {

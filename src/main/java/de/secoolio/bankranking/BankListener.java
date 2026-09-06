@@ -6,7 +6,9 @@ import java.util.UUID;
 
 import org.bukkit.GameRules;
 import org.bukkit.entity.Mannequin;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -168,6 +170,7 @@ public final class BankListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         this.plugin.ranking().enable(event.getPlayer());
+        this.plugin.bounties().refresh(event.getPlayer());
         if (this.plugin.packs() != null) {
             this.plugin.packs().send(event.getPlayer());
         }
@@ -175,6 +178,7 @@ public final class BankListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        this.plugin.bounties().forget(event.getPlayer());
         this.plugin.ranking().forget(event.getPlayer());
         this.plugin.progressBar().hide(event.getPlayer());
         this.lastOpenTick.remove(event.getPlayer().getUniqueId());
@@ -198,11 +202,40 @@ public final class BankListener implements Listener {
         Player player = event.getEntity();
         // Laeuft vor dem Schliessen des Fensters: hier steht fest, ob das Inventar erhalten bleibt.
         this.keepOnDeath.put(player.getUniqueId(), event.getKeepInventory());
+        this.plugin.bounties().onDeath(player, killerOf(event));
         // Die Todes-Statistik wird erst nach diesem Ereignis hochgezaehlt.
         this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
             if (player.isOnline()) {
                 this.plugin.ranking().refresh(player);
             }
         });
+    }
+
+    /**
+     * Wer den Tod zu verantworten hat.
+     *
+     * <p>Zwei Quellen: die Kampfzuschreibung von Vanilla und die Schadensquelle des Ereignisses.
+     * Faellt eine aus - etwa bei einem Sturz kurz nach einem Treffer -, traegt die andere.
+     * Ein gezaehmtes Tier zaehlt nur, wenn es in der Konfiguration erlaubt ist: sonst waere
+     * eine Wolfsmeute eine Kopfgeld-Farm, die von allein zuschlaegt.
+     */
+    private Player killerOf(PlayerDeathEvent event) {
+        Player killer = event.getEntity().getKiller();
+        if (killer == null
+                && event.getDamageSource().getCausingEntity() instanceof Player direkt) {
+            killer = direkt;
+        }
+        if (killer == null && this.plugin.settings().bountyPetCounts()
+                && event.getDamageSource().getDirectEntity() instanceof Tameable tier
+                && tier.getOwnerUniqueId() != null) {
+            killer = this.plugin.getServer().getPlayer(tier.getOwnerUniqueId());
+        }
+        if (killer == null || killer.equals(event.getEntity())) {
+            return null;
+        }
+        // Im Kreativ- oder Zuschauermodus zaehlt ein Kill nicht: sonst waere jedes Kopfgeld
+        // fuer einen Operator kostenlos einzusammeln.
+        GameMode modus = killer.getGameMode();
+        return modus == GameMode.SURVIVAL || modus == GameMode.ADVENTURE ? killer : null;
     }
 }

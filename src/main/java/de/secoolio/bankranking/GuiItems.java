@@ -50,6 +50,12 @@ public final class GuiItems {
         return stack;
     }
 
+    /** Laesst einen fertigen Gegenstand schimmern - fuer Koepfe, deren Textur schon steht. */
+    public static ItemStack glow(ItemStack stack) {
+        stack.setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+        return stack;
+    }
+
     /**
      * Ein Kopf mit dem Gesicht eines Spielers.
      *

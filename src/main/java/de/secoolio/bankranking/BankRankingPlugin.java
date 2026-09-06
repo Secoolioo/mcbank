@@ -30,6 +30,8 @@ public final class BankRankingPlugin extends JavaPlugin {
     private Effects effects;
     private RankingBoard ranking;
     private ResourcePacks packs;
+    private BountyData bountyData;
+    private BountyService bounties;
 
     @Override
     public void onEnable() {
@@ -49,6 +51,10 @@ public final class BankRankingPlugin extends JavaPlugin {
 
         this.ranking = new RankingBoard(this);
 
+        this.bountyData = new BountyData(new File(getDataFolder(), "kopfgelder.yml"), getLogger());
+        this.bountyData.load();
+        this.bounties = new BountyService(this, this.bountyData);
+
         // Das Resourcepack ist Beiwerk: scheitert es, laeuft die Bank unveraendert weiter und
         // das Kopfgeld zeigt spaeter die Sparfassung.
         this.packs = ResourcePacks.start(this);
@@ -58,12 +64,16 @@ public final class BankRankingPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(this.packs, this);
         }
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
-                event -> BankCommands.register(this, event.registrar()));
+                event -> {
+                    BankCommands.register(this, event.registrar());
+                    BountyCommands.register(this, event.registrar());
+                });
 
         getServer().getScheduler().runTask(this, () -> {
             this.npcs.ensureAll();
             for (Player player : getServer().getOnlinePlayers()) {
                 this.ranking.enable(player);
+                this.bounties.refresh(player);
             }
         });
         if (this.packs != null) {
@@ -86,6 +96,8 @@ public final class BankRankingPlugin extends JavaPlugin {
 
         getLogger().info("Konfiguration geladen: " + this.settings.summaryLine());
         getLogger().info(this.playerData.size() + " Spieler-Konten und " + this.npcs.count() + " Bank-NPCs geladen");
+        getLogger().info(this.bountyData.active().size() + " laufende Kopfgelder und "
+                + this.bountyData.claims().size() + " offene Beutefaecher geladen");
         getLogger().info("BankRanking v" + getPluginMeta().getVersion() + " aktiviert");
     }
 
@@ -111,6 +123,13 @@ public final class BankRankingPlugin extends JavaPlugin {
         if (this.ranking != null) {
             this.ranking.shutdown();
         }
+        if (this.bounties != null) {
+            // Roter TAB-Name und Balken duerfen das Plugin nicht ueberleben.
+            this.bounties.shutdown();
+        }
+        if (this.bountyData != null) {
+            this.bountyData.saveIfDirty();
+        }
         if (this.packs != null) {
             this.packs.stop();
         }
@@ -125,13 +144,20 @@ public final class BankRankingPlugin extends JavaPlugin {
         reloadConfig();
         loadSettings();
         boolean dataOk = this.playerData.reload();
+        boolean bountyOk = this.bountyData.reload();
         this.npcs.applySettings();
         this.ranking.reapply();
         if (!this.settings.bossBarEnabled()) {
             this.progressBar.hideAll();
         }
+        // Erst alles zuruecksetzen, dann aus den frischen Daten neu setzen: sonst bliebe ein
+        // Name rot, dessen Topf von Hand aus der Datei entfernt wurde.
+        this.bounties.shutdown();
+        for (Player player : getServer().getOnlinePlayers()) {
+            this.bounties.refresh(player);
+        }
         getLogger().info("Neu geladen: " + this.settings.summaryLine());
-        return dataOk;
+        return dataOk && bountyOk;
     }
 
     private void loadSettings() {
@@ -189,6 +215,10 @@ public final class BankRankingPlugin extends JavaPlugin {
     /** Hat dieser Spieler das Resourcepack geladen? Ohne Pack gilt die Sparfassung. */
     public boolean hasPack(Player player) {
         return this.packs != null && this.packs.has(player);
+    }
+
+    public BountyService bounties() {
+        return this.bounties;
     }
 
     public RankingBoard ranking() {

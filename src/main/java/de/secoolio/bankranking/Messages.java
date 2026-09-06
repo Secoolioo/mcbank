@@ -294,6 +294,175 @@ public final class Messages {
     public static final String SIDEBAR_ZEILE_TODE = "<red>Tode:</red> <white><tode></white>";
     public static final String SIDEBAR_ZEILE_TAG = "<gray>Tag <white><tag></white>";
 
+    // ----- Kopfgeld: Fenster -----
+
+    public static final String KOPFGELD_TITEL =
+            "<dark_red>\u2620</dark_red> <bold>Kopfgeld</bold> <dark_gray>|</dark_gray> <gray>Ziel wählen";
+    /** <name> = Gejagter. */
+    public static final String KOPFGELD_EINSATZ_TITEL =
+            "<dark_red>\u2620</dark_red> <bold>Kopfgeld</bold> <dark_gray>|</dark_gray> <gray>Einsatz auf <name>";
+    public static final String KOPFGELD_LISTE_TITEL =
+            "<dark_red>\u2620</dark_red> <bold>Kopfgeld</bold> <dark_gray>|</dark_gray> <gray>Alle Steckbriefe";
+    public static final String BEUTE_TITEL =
+            "<gold>\u2726</gold> <bold>Deine Beute</bold>";
+
+    public static final String KOPFGELD_KOPF_NAME = "<dark_red><bold>Kopfgeld aussetzen</bold></dark_red>";
+    public static final String[] KOPFGELD_KOPF_LORE = {
+            "<gray>Wähle einen Spieler und lege",
+            "<gray>deinen Einsatz hinein.",
+            "",
+            "<gray>Einsatz: <white>Smaragde, Diamanten, Netherite",
+            "<gray>Wer ihn tötet, bekommt alles.",
+            "",
+            "<dark_gray>Auf dich selbst geht nicht.",
+            "<dark_gray>Wer aussetzt, kassiert nicht."
+    };
+
+    /** <name>, <wert>, <einsaetze>. */
+    public static final String KOPFGELD_ZIEL_GESUCHT = "<red><bold><name></bold></red>";
+    public static final String KOPFGELD_ZIEL_FREI = "<white><name></white>";
+    public static final String KOPFGELD_ZIEL_ONLINE = "<green>online</green>";
+    public static final String KOPFGELD_ZIEL_OFFLINE = "<dark_gray>offline";
+    /** <wert>, <einsaetze>. */
+    public static final String KOPFGELD_ZIEL_TOPF =
+            "<gold>\u2726 <wert></gold> <dark_gray>aus <einsaetze> Einsätzen";
+    public static final String KOPFGELD_ZIEL_KEIN_TOPF = "<dark_gray>kein Kopfgeld";
+    /** <rest> = Restzeit als Text. */
+    public static final String KOPFGELD_ZIEL_GESPERRT = "<yellow>gesperrt noch <rest>";
+    public static final String KOPFGELD_ZIEL_KLICK = "<dark_gray>Klick: Einsatz legen";
+    public static final String KOPFGELD_NIEMAND = "<gray>Niemand da, auf den sich ein Kopfgeld lohnt.";
+
+    /** <seite>, <seiten>. */
+    public static final String KOPFGELD_SEITE_NAME = "<white>Seite <seite> von <seiten>";
+    public static final String KOPFGELD_SEITE_VOR = "<white>Nächste Seite \u00bb";
+    public static final String KOPFGELD_SEITE_ZURUECK = "<white>\u00ab Vorherige Seite";
+
+    public static final String KOPFGELD_LISTE_NAME = "<dark_red><bold>Alle Steckbriefe</bold></dark_red>";
+    public static final String KOPFGELD_LISTE_LORE = "<gray>Jedes laufende Kopfgeld auf einen Blick.";
+    /** <anzahl>, <wert>. */
+    public static final String KOPFGELD_LISTE_KOPF =
+            "<gray><anzahl> laufende Kopfgelder <dark_gray>|</dark_gray> <gold>\u2726 <wert></gold> gesamt";
+    public static final String KOPFGELD_LISTE_LEER = "<gray>Zurzeit ist niemand ausgeschrieben.";
+    public static final String KOPFGELD_DAS_BIST_DU = "<dark_gray>Das bist du.";
+
+    public static final String KOPFGELD_BUTTON_NAME = "<red><bold>\u2714 Kopfgeld aussetzen</bold></red>";
+    public static final String[] KOPFGELD_BUTTON_LORE = {
+            "<gray>Legt deinen Einsatz in den Topf.",
+            "",
+            "<red>\u26a0 Der Einsatz ist danach weg.",
+            "<dark_gray>Fenster schließen = alles zurück"
+    };
+    /** <anzahl>, <wert>. */
+    public static final String KOPFGELD_EINSATZ_NAME = "<white>Einsatz: <gold><anzahl> Items</gold>";
+    public static final String KOPFGELD_EINSATZ_WERT = "<gray>Wert: <gold>\u2726 <wert>";
+    public static final String KOPFGELD_EINSATZ_LEER = "<gray>Noch nichts eingelegt.";
+    public static final String KOPFGELD_EINSATZ_ERLAUBT =
+            "<dark_gray>Erlaubt: Smaragde, Diamanten, Netherite (auch als Block)";
+    /** <anzahl>. */
+    public static final String KOPFGELD_EINSATZ_ABGELEHNT =
+            "<red><anzahl> Stapel werden nicht angenommen";
+
+    public static final String BEUTE_KNOPF_NAME = "<gold><bold>\u2714 Alles nehmen</bold></gold>";
+    public static final String[] BEUTE_KNOPF_LORE = {
+            "<gray>Legt die Beute in dein Inventar.",
+            "<gray>Was nicht passt, bleibt hier liegen."
+    };
+    public static final String BEUTE_LEER = "<gray>Du hast nichts abzuholen.";
+    public static final String BEUTE_NAME = "<gold><bold>Deine Beute</bold></gold>";
+    /** <anzahl>. */
+    public static final String BEUTE_LORE = "<gray><anzahl> Gegenstände warten auf dich.";
+
+    // ----- Kopfgeld: Meldungen -----
+
+    /** <wert>, <name>. */
+    public static final String KOPFGELD_AUSGESETZT =
+            "<green>Du hast <gold>\u2726 <wert></gold> auf <white><name></white> gesetzt.";
+    /** <name>, <wert>. */
+    public static final String KOPFGELD_ERHOEHT =
+            "<green>Der Topf auf <white><name></white> steht jetzt bei <gold>\u2726 <wert></gold>.";
+    /** <wert>. */
+    public static final String KOPFGELD_AUF_DICH =
+            "<red>Auf dich ist ein Kopfgeld von <gold>\u2726 <wert></gold> ausgesetzt!";
+    /** <von>, <wert>, <name>. */
+    public static final String KOPFGELD_BROADCAST =
+            "<dark_red>\u2620</dark_red> <white><von></white> setzt <gold>\u2726 <wert></gold> "
+                    + "auf den Kopf von <red><bold><name></bold></red>!";
+    public static final String KOPFGELD_SELBST =
+            "<yellow>Auf dich selbst kannst du kein Kopfgeld aussetzen.";
+    /** <mindest>. */
+    public static final String KOPFGELD_ZU_KLEIN =
+            "<yellow>Der Einsatz muss mindestens <gold>\u2726 <mindest></gold> wert sein.";
+    public static final String KOPFGELD_NUR_MATERIALIEN =
+            "<yellow>Als Einsatz gehen nur Smaragde, Diamanten und Netherite - auch als Block, "
+                    + "aber unverzaubert und unbenannt.";
+    /** <name>, <rest>. */
+    public static final String KOPFGELD_AUSSETZ_SPERRE =
+            "<yellow>Auf <white><name></white> wurde gerade ausgezahlt - neue Kopfgelder erst in "
+                    + "<white><rest></white>.";
+    /** <name>. */
+    public static final String KOPFGELD_ZIEL_BESCHAEDIGT =
+            "<red>Der Eintrag zu <white><name></white> in kopfgelder.yml ist beschädigt. "
+                    + "Bitte einen Admin fragen.";
+    public static final String KOPFGELD_GESPERRT =
+            "<red>kopfgelder.yml ist beschädigt - Kopfgelder sind gesperrt. Details im Server-Log.";
+    public static final String KOPFGELD_FEHLER =
+            "<red>Der Einsatz konnte nicht gespeichert werden. Deine Items bleiben im Fenster!";
+    public static final String KOPFGELD_AUS = "<yellow>Die Kopfgeld-Funktion ist abgeschaltet.";
+    /** <name>. */
+    public static final String KOPFGELD_UNBEKANNT =
+            "<yellow>Mit <white><name></white> kann ich nichts anfangen. Nimm <white>/kopfgeld</white>, "
+                    + "dort stehen alle zur Auswahl.";
+
+    /** <wert>, <name>. */
+    public static final String KOPFGELD_KASSIERT =
+            "<gold><bold>Kopfgeld kassiert!</bold></gold> <gray><gold>\u2726 <wert></gold> "
+                    + "für <white><name></white>.";
+    /** <killer>, <name>, <wert>. */
+    public static final String KOPFGELD_KASSIERT_BROADCAST =
+            "<gold>\u2620</gold> <white><killer></white> <gray>hat das Kopfgeld auf "
+                    + "<white><name></white> kassiert: <gold>\u2726 <wert></gold>";
+    /** <name>. */
+    public static final String KOPFGELD_OPFER =
+            "<red>Du wurdest von <white><name></white> erlegt - dein Kopfgeld ist ausgezahlt.";
+    /** <name>. */
+    public static final String KOPFGELD_SELBST_EINGEZAHLT =
+            "<yellow>Du hast selbst auf <white><name></white> gesetzt - du kassierst nicht. "
+                    + "Der Topf bleibt stehen.";
+    /** <name>, <rest>. */
+    public static final String KOPFGELD_KILLER_GESPERRT =
+            "<yellow>Du hast auf <white><name></white> gerade erst kassiert - der Topf bleibt "
+                    + "noch <white><rest></white> stehen.";
+    /** <name>, <anzahl>. */
+    public static final String KOPFGELD_AUFGEHOBEN =
+            "<green>Das Kopfgeld auf <white><name></white> ist aufgehoben, <anzahl> Einsätze "
+                    + "gehen zurück.";
+    /** <name>. */
+    public static final String KOPFGELD_ZURUECK =
+            "<green>Dein Einsatz auf <white><name></white> liegt in deiner Beute: "
+                    + "<white>/kopfgeld beute</white>";
+    public static final String BEUTE_INVENTAR_VOLL =
+            "<yellow>Dein Inventar ist voll - der Rest steht als Kiste vor dir. "
+                    + "<white>/kopfgeld beute</white> holt sie von überall.";
+    public static final String BEUTE_FREMD = "<red>Das ist nicht deine Beute.";
+    /** <anzahl>. */
+    public static final String BEUTE_ABGEHOLT = "<green>Beute abgeholt: <white><anzahl></white> Items.";
+
+    // ----- Kopfgeld: Bildschirm -----
+
+    public static final String KOPFGELD_TITEL_TEXT = "<dark_red><bold>GESUCHT</bold></dark_red>";
+    /** <name>, <wert>. */
+    public static final String KOPFGELD_UNTERTITEL_TEXT =
+            "<gold><name></gold> <dark_gray>|</dark_gray> <yellow>\u2726 <wert></yellow>";
+    /** <name>, <wert>, <kopf> = das Gesicht. */
+    public static final String KOPFGELD_PLAKAT_CHAT =
+            "<dark_gray>\u2503</dark_gray> <kopf> <red><bold><name></bold></red> "
+                    + "<dark_gray>-</dark_gray> <gold>\u2726 <wert></gold> <gray>tot oder lebendig";
+    /** <wert>. */
+    public static final String KOPFGELD_BOSSBAR =
+            "<dark_red><bold>KOPFGELD AUF DICH</bold></dark_red> <dark_gray>|</dark_gray> <gold>\u2726 <wert>";
+    /** <name>, <wert>. */
+    public static final String KOPFGELD_TAB = "<red><name></red> <dark_red>\u2620</dark_red>";
+
     private Messages() {
     }
 

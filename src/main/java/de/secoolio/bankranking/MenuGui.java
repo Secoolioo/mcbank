@@ -22,7 +22,9 @@ public final class MenuGui implements BankWindow {
     private static final int DEPOSIT_SLOT = 20;
     private static final int TOP_SLOT = 22;
     private static final int ACCOUNT_SLOT = 24;
+    private static final int BOUNTY_SLOT = 38;
     private static final int RANK_SLOT = 40;
+    private static final int LOOT_SLOT = 42;
     private static final int CLOSE_SLOT = 49;
 
     private final BankRankingPlugin plugin;
@@ -58,6 +60,18 @@ public final class MenuGui implements BankWindow {
         this.inventory.setItem(RANK_SLOT, GuiItems.labelled(progress.rank().icon(),
                 Messages.MENU_RANG_NAME.replace("<rang>", progress.rank().colored()),
                 GuiTexts.progressLines(this.plugin, progress)));
+        if (this.plugin.settings().bountyEnabled()) {
+            this.inventory.setItem(BOUNTY_SLOT, GuiItems.labelled(Material.WITHER_SKELETON_SKULL,
+                    Messages.KOPFGELD_KOPF_NAME, List.of(Messages.KOPFGELD_KOPF_LORE)));
+        }
+        // Der Beute-Knopf erscheint nur, wenn es etwas abzuholen gibt - ein leerer Knopf
+        // waere eine Einladung, ihn ins Leere zu druecken.
+        BountyData.Claim beute = this.plugin.bounties().data().claim(player.getUniqueId());
+        if (beute != null && !beute.items().isEmpty()) {
+            this.inventory.setItem(LOOT_SLOT, GuiItems.glowing(Material.CHEST, Messages.BEUTE_NAME,
+                    List.of(Messages.BEUTE_LORE.replace("<anzahl>",
+                            String.valueOf(BountyItems.size(beute.items()))))));
+        }
         this.inventory.setItem(CLOSE_SLOT, GuiItems.labelled(Material.BARRIER,
                 Messages.BUTTON_SCHLIESSEN_NAME, List.of(Messages.BUTTON_SCHLIESSEN_LORE)));
     }
@@ -76,6 +90,16 @@ public final class MenuGui implements BankWindow {
                 BankGui bank = new BankGui(this.plugin);
                 bank.prepare(player);
                 this.plugin.windows().openLater(player, bank);
+            }
+            case BOUNTY_SLOT -> {
+                if (this.plugin.settings().bountyEnabled()) {
+                    BankWindows.click(player);
+                    this.plugin.windows().openLater(player, new BountyGui(this.plugin, player, 0));
+                }
+            }
+            case LOOT_SLOT -> {
+                BankWindows.click(player);
+                this.plugin.windows().openLater(player, new LootGui(this.plugin, player));
             }
             case TOP_SLOT -> {
                 BankWindows.click(player);

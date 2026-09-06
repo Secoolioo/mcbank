@@ -2,7 +2,7 @@ name: BankRanking
 version: '${version}'
 main: de.secoolio.bankranking.BankRankingPlugin
 api-version: '26.2'
-description: Item-Bank mit Punkte-Rangliste (NPCs mit Spieler-Skin, Sidebar, /reichste, /kontostand)
+description: Item-Bank mit Punkte-Rangliste und Kopfgeldern (NPCs mit Spieler-Skin, Sidebar, WANTED-Plakate)
 author: secoolio
 load: POSTWORLD
 
@@ -10,6 +10,8 @@ permissions:
   bankranking.admin:
     description: Verwaltung (/spawnrank, /bankranking list|removenpc|skin|reload|wert|sidebar)
     default: op
+    children:
+      bankranking.kopfgeld.admin: true
   bankranking.use:
     description: Darf die Bank-NPCs benutzen
     default: true
@@ -19,3 +21,9 @@ permissions:
   bankranking.reichste:
     description: Darf /reichste benutzen
     default: true
+  bankranking.kopfgeld:
+    description: Darf Kopfgelder aussetzen, einsehen und Beute abholen
+    default: true
+  bankranking.kopfgeld.admin:
+    description: Darf Kopfgelder aufheben und Einsaetze zurueckerstatten
+    default: op
