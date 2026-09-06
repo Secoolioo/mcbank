@@ -85,7 +85,7 @@ final class WantedShow {
                 Placeholder.unparsed("name", targetName),
                 Placeholder.unparsed("wert", amount));
         Component plakat = this.poster == null || face == null
-                ? null : this.poster.render(face, targetName, amount);
+                ? null : this.poster.render(face, targetName, BountyItems.loot(pot.total()));
 
         for (Player zuschauer : this.plugin.getServer().getOnlinePlayers()) {
             zuschauer.sendMessage(chat);

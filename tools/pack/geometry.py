@@ -41,13 +41,15 @@ def ascent_fuer(oberkante):
 PLAKAT_OBEN = -33
 PLAKAT_UNTEN = 33
 
-SCHLAGZEILE = (-33, -27)      # "GESUCHT", in die Kunst gebacken
-UNTERZEILE = (-27, -24)       # "TOT ODER LEBENDIG", in die Kunst gebacken
-# Zwischen -24 und -22 bleibt Luft fuer den Rahmen um das Portrait.
-GESICHT = (-22, 2)            # 24 x 24, vom Server aus Skin-Pixeln gemalt
-NAME = (3, 11)                # Spielername, eigene Schrift, Hoehe 8
-BELOHNUNG = (13, 29)          # Betrag, eigene Schrift, Hoehe 16
-FUSS = (29, 33)               # Zierleiste, in die Kunst gebacken
+# Die Baender beginnen erst unterhalb des gezeichneten Rahmens - im ersten Entwurf lag die
+# Schlagzeile darauf und wurde oben abgeschnitten.
+SCHLAGZEILE = (-31, -26)      # "GESUCHT", in die Kunst gebacken
+UNTERZEILE = (-26, -23)       # "TOT ODER LEBENDIG", in die Kunst gebacken
+# Zwei Textpixel Luft, damit der Portraitrahmen die Unterzeile nicht anschneidet.
+GESICHT = (-21, 3)            # 24 x 24, vom Server aus Skin-Pixeln gemalt
+NAME = (4, 12)                # Spielername, eigene Schrift, Hoehe 8
+BELOHNUNG = (14, 30)          # Sinnbild und Stueckzahl, eigene Schrift, Hoehe 16
+FUSS = (30, 33)               # nur noch eine Zierleiste; der Text dort kollidierte
 
 
 # ------------------------------------------------------------------- Gesicht
@@ -97,6 +99,10 @@ KLEIN_SPALTEN = 8
 # haetten zwei Provider denselben Codepoint und wuerden sich gegenseitig verdraengen.
 GROSS_ZEICHEN = "0123456789.,x"
 GROSS_BASIS_CODEPOINT = 0xE300
+
+# Das Sinnbild sitzt in derselben Zeile wie der Betrag, nur zwei Pixel hoeher, damit es
+# optisch auf der Mitte der Ziffern liegt statt auf ihrer Grundlinie.
+ITEM_ASCENT = ascent_fuer(BELOHNUNG[0] - 1)
 GROSS_SPALTEN = 4
 
 
@@ -108,6 +114,19 @@ ABSTAND_POTENZEN = 11         # bis +-1024
 
 CP_STREIFEN = 0xE100          # vier Plakat-Spalten
 CP_GESICHT = 0xE200           # acht Gesichtszeilen
+CP_ITEM = 0xE400              # die sechs Einsatz-Materialien als Sinnbild
+
+# Die Materialien in derselben Reihenfolge wie BountyItems.RANG auf der Java-Seite:
+# wertvollstes zuerst. Ein Sinnbild neben der Zahl beantwortet die Frage "wie viel wovon?"
+# ohne ein einziges Wort - und genau die war am ersten Entwurf offen geblieben.
+ITEM_NAMEN = [
+    "netherite_block", "netherite_ingot",
+    "emerald_block", "diamond_block",
+    "emerald", "diamond",
+]
+ITEM_ZELLE = (24, 24)
+ITEM_HEIGHT = 18              # etwas groesser als die Ziffern, damit es traegt
+ITEM_SPALTEN = 6
 
 
 def pruefe():
@@ -117,6 +136,7 @@ def pruefe():
             ("plakat", ASCENT_PLAKAT, HOEHE),
             ("klein", KLEIN_ASCENT, KLEIN_HEIGHT),
             ("gross", GROSS_ASCENT, GROSS_HEIGHT),
+            ("sinnbild", ITEM_ASCENT, ITEM_HEIGHT),
     ] + [("gesicht%d" % i, a, GESICHT_HEIGHT) for i, a in enumerate(gesicht_ascents())]:
         if ascent > height:
             fehler.append("%s: ascent %d > height %d" % (name, ascent, height))

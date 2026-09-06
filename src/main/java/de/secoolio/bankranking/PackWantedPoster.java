@@ -1,5 +1,7 @@
 package de.secoolio.bankranking;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import net.kyori.adventure.text.Component;
@@ -43,14 +45,30 @@ final class PackWantedPoster {
     }
 
     /**
+     * Ein Posten der Belohnung: so viele Stueck von diesem Material.
+     *
+     * @param material der kleingeschriebene Bukkit-Name, etwa {@code diamond}
+     */
+    record Loot(String material, int count) {
+    }
+
+    /** So viele Posten passen nebeneinander unter das Portrait. */
+    private static final int LOOT_LIMIT = 2;
+    /** Luft zwischen Sinnbild und Zahl. */
+    private static final int LOOT_GAP = 2;
+    /** Luft zwischen zwei Posten. */
+    private static final int LOOT_SPACING = 8;
+
+    /**
      * Das fertige Plakat.
      *
-     * @param face   das Gesicht des Gejagten
-     * @param name   sein Name; laenger als {@value #NAME_LIMIT} Zeichen wird gekuerzt
-     * @param amount der Betrag, bereits als Text formatiert
+     * @param face das Gesicht des Gejagten
+     * @param name sein Name; laenger als {@value #NAME_LIMIT} Zeichen wird gekuerzt
+     * @param loot die Belohnung, wertvollstes zuerst; mehr als {@value #LOOT_LIMIT} Posten
+     *             passen nicht nebeneinander und werden weggelassen
      */
-    Component render(SkinFace face, String name, String amount) {
-        return layout(face, name, amount).build(this.style);
+    Component render(SkinFace face, String name, List<Loot> loot) {
+        return layout(face, name, loot).build(this.style);
     }
 
     /**
@@ -58,11 +76,11 @@ final class PackWantedPoster {
      *
      * <p>Nur fuer den Test - im Betrieb interessiert das Ergebnis, nicht die Zwischenrechnung.
      */
-    int totalAdvance(SkinFace face, String name, String amount) {
-        return layout(face, name, amount).gesamt();
+    int totalAdvance(SkinFace face, String name, List<Loot> loot) {
+        return layout(face, name, loot).gesamt();
     }
 
-    private Zeile layout(SkinFace face, String name, String amount) {
+    private Zeile layout(SkinFace face, String name, List<Loot> loot) {
         Zeile zeile = new Zeile(this.font.spacing());
 
         zeile.jumpTo(-this.font.posterWidth() / 2);
@@ -75,13 +93,53 @@ final class PackWantedPoster {
         zeile.jumpTo(-this.font.smallTextWidth(kurz) / 2);
         appendSmall(zeile, kurz);
 
-        String betrag = digitsOnly(amount);
-        zeile.jumpTo(-this.font.largeTextWidth(betrag) / 2);
-        appendLarge(zeile, betrag);
+        appendLoot(zeile, loot);
 
         // Der Ausgleich am Ende ist es, der die Zeile mittig macht.
         zeile.jumpTo(0);
         return zeile;
+    }
+
+    /**
+     * Die Belohnung als Sinnbild und Zahl.
+     *
+     * <p>Der erste Entwurf schrieb hier eine nackte Punktzahl hin, und genau danach wurde
+     * gefragt: was soll der Wert sein? Ein Diamant-Sinnbild mit einer 32 daneben braucht
+     * keine Erklaerung.
+     */
+    private void appendLoot(Zeile zeile, List<Loot> loot) {
+        List<Loot> posten = new ArrayList<>();
+        for (Loot einzeln : loot) {
+            if (posten.size() < LOOT_LIMIT && einzeln.count() > 0
+                    && this.font.item(einzeln.material()) != 0) {
+                posten.add(einzeln);
+            }
+        }
+        if (posten.isEmpty()) {
+            return;
+        }
+
+        int breite = 0;
+        for (int i = 0; i < posten.size(); i++) {
+            breite += lootWidth(posten.get(i)) + (i > 0 ? LOOT_SPACING : 0);
+        }
+        zeile.jumpTo(-breite / 2);
+
+        for (int i = 0; i < posten.size(); i++) {
+            if (i > 0) {
+                zeile.skip(LOOT_SPACING);
+            }
+            Loot einzeln = posten.get(i);
+            zeile.coloured(String.valueOf(this.font.item(einzeln.material())), PLAIN);
+            zeile.advance(this.font.itemWidth(einzeln.material()));
+            zeile.skip(LOOT_GAP);
+            appendLarge(zeile, digitsOnly(String.valueOf(einzeln.count())));
+        }
+    }
+
+    private int lootWidth(Loot posten) {
+        return this.font.itemWidth(posten.material()) + LOOT_GAP
+                + this.font.largeTextWidth(digitsOnly(String.valueOf(posten.count())));
     }
 
     /** Der Hintergrund: vier Spalten, dazwischen je ein Pixel zurueck. */
@@ -198,6 +256,15 @@ final class PackWantedPoster {
         void advance(int pixel) {
             this.cursor += pixel;
             this.gesamt += pixel;
+        }
+
+        /** Rueckt um eine feste Strecke weiter, ohne etwas zu zeichnen. */
+        void skip(int pixel) {
+            if (pixel == 0) {
+                return;
+            }
+            this.offen.append(this.spacing.of(pixel));
+            advance(pixel);
         }
 
         /** Setzt den Cursor auf eine absolute Stelle, gemessen von der Bildschirmmitte. */

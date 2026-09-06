@@ -146,13 +146,31 @@ def plakat_zeile(schrift, gesicht, name, belohnung):
         teile.append((z, (58, 40, 26)))
         cursor += schrift.breite(z)
 
-    # Betrag, mittig, in der grossen Schrift.
-    ziffern = [chr(g.GROSS_BASIS_CODEPOINT + g.GROSS_ZEICHEN.index(z))
-               for z in belohnung if z in g.GROSS_ZEICHEN]
-    springe_auf(-sum(schrift.breite(z) for z in ziffern) // 2)
-    for z in ziffern:
-        teile.append((z, (122, 24, 18)))
-        cursor += schrift.breite(z)
+    # Belohnung: je Posten ein Sinnbild und die Stueckzahl daneben.
+    posten = []
+    for material, anzahl in belohnung[:2]:
+        symbol = chr(g.CP_ITEM + g.ITEM_NAMEN.index(material))
+        ziffern = [chr(g.GROSS_BASIS_CODEPOINT + g.GROSS_ZEICHEN.index(z))
+                   for z in str(anzahl) if z in g.GROSS_ZEICHEN]
+        posten.append((symbol, ziffern))
+
+    gesamt = 0
+    for i, (symbol, ziffern) in enumerate(posten):
+        gesamt += schrift.breite(symbol) + 2 + sum(schrift.breite(z) for z in ziffern)
+        if i:
+            gesamt += 8
+    springe_auf(-gesamt // 2)
+    for i, (symbol, ziffern) in enumerate(posten):
+        if i:
+            teile.extend(abstand(schrift, 8))
+            cursor += 8
+        teile.append((symbol, (255, 255, 255)))
+        cursor += schrift.breite(symbol)
+        teile.extend(abstand(schrift, 2))
+        cursor += 2
+        for z in ziffern:
+            teile.append((z, (122, 24, 18)))
+            cursor += schrift.breite(z)
 
     # Ausgleich: die Zeile muss die Breite null haben, sonst sitzt sie nicht mittig.
     springe_auf(0)
@@ -176,7 +194,8 @@ def beispiel_gesicht():
 
 if __name__ == "__main__":
     schrift = Schrift(PACK)
-    teile = plakat_zeile(schrift, beispiel_gesicht(), "Secoolioo", "12.500")
+    teile = plakat_zeile(schrift, beispiel_gesicht(), "Secoolioo",
+                         [("netherite_block", 3), ("diamond", 64)])
     bild, gesamt = zeichne(schrift, teile, g.BREITE + 8, g.HOEHE + 8,
                            -g.BREITE // 2 - 4, g.PLAKAT_OBEN - 4)
 

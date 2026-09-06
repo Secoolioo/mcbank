@@ -1,7 +1,7 @@
 package de.secoolio.bankranking;
 
 import java.util.EnumMap;
-import java.util.LinkedHashSet;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -130,18 +130,6 @@ final class BountyItems {
         return groessen;
     }
 
-    /** Die Materialien in fester Reihenfolge, damit Anzeigen nicht springen. */
-    static Set<Material> ordered() {
-        Set<Material> reihe = new LinkedHashSet<>();
-        reihe.add(Material.NETHERITE_BLOCK);
-        reihe.add(Material.NETHERITE_INGOT);
-        reihe.add(Material.EMERALD_BLOCK);
-        reihe.add(Material.EMERALD);
-        reihe.add(Material.DIAMOND_BLOCK);
-        reihe.add(Material.DIAMOND);
-        return reihe;
-    }
-
     /**
      * Deutsche Namen der sechs Einsatz-Materialien, einmal in Einzahl und einmal in Mehrzahl.
      *
@@ -194,6 +182,28 @@ final class BountyItems {
         }
         return String.join(", ", teile.subList(0, teile.size() - 1))
                 + " und " + teile.get(teile.size() - 1);
+    }
+
+    /**
+     * Die Belohnung als Posten fuer das Plakat, wertvollstes zuerst.
+     *
+     * <p>Die Reihenfolge muss dieselbe sein wie im Resourcepack unter {@code item.namen} -
+     * sonst zeigte das Plakat das falsche Sinnbild. Ein Test haelt beide gegeneinander.
+     */
+    static List<PackWantedPoster.Loot> loot(Map<Material, Integer> items) {
+        List<PackWantedPoster.Loot> posten = new java.util.ArrayList<>();
+        for (Material material : RANG) {
+            Integer anzahl = items.get(material);
+            if (anzahl != null && anzahl > 0) {
+                posten.add(new PackWantedPoster.Loot(key(material), anzahl));
+            }
+        }
+        return posten;
+    }
+
+    /** Die Reihenfolge, in der Materialien ueberall auftauchen - wertvollstes zuerst. */
+    static List<Material> rank() {
+        return RANG;
     }
 
     /** Das wertvollste Material im Topf - das Sinnbild der Belohnung. */

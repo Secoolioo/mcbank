@@ -78,6 +78,15 @@ def font_json():
         "height": g.GROSS_HEIGHT,
         "chars": _raster(gross, g.GROSS_SPALTEN),
     })
+
+    sinnbilder = "".join(cp(g.CP_ITEM + i) for i in range(len(g.ITEM_NAMEN)))
+    provider.append({
+        "type": "bitmap",
+        "file": "%s:font/sinnbilder.png" % NAMENSRAUM,
+        "ascent": g.ITEM_ASCENT,
+        "height": g.ITEM_HEIGHT,
+        "chars": _raster(sinnbilder, g.ITEM_SPALTEN),
+    })
     return {"providers": provider}
 
 
@@ -94,7 +103,7 @@ def _raster(zeichen, spalten):
     return zeilen
 
 
-def metriken(breiten_klein, breiten_gross):
+def metriken(breiten_klein, breiten_gross, breiten_item):
     """Die Masse, die die Java-Seite braucht - eine einzige Quelle der Wahrheit."""
     zeilen = [
         "# Von tools/pack/build_pack.py erzeugt. Nicht von Hand aendern.",
@@ -117,6 +126,13 @@ def metriken(breiten_klein, breiten_gross):
         "gross.basis=%d" % g.GROSS_BASIS_CODEPOINT,
         "gross.breiten=%s" % " ".join(str(breiten_gross[z]) for z in g.GROSS_ZEICHEN),
         "gross.oben=%d" % g.BELOHNUNG[0],
+        # Die sechs Sinnbilder, in derselben Reihenfolge wie BountyItems.RANG auf der
+        # Java-Seite. Weicht eine der beiden Reihenfolgen ab, zeigt das Plakat das falsche
+        # Material - deshalb prueft ein Test sie gegeneinander.
+        "item.namen=%s" % " ".join(g.ITEM_NAMEN),
+        "item.basis=%d" % g.CP_ITEM,
+        "item.breiten=%s" % " ".join(str(breiten_item[i]) for i in range(len(g.ITEM_NAMEN))),
+        "item.oben=%d" % (g.BELOHNUNG[0] - 1),
         "abstand.plus=%d" % g.CP_ABSTAND_PLUS,
         "abstand.minus=%d" % g.CP_ABSTAND_MINUS,
         "abstand.potenzen=%d" % g.ABSTAND_POTENZEN,
@@ -140,12 +156,14 @@ def schreibe(ziel):
     art.pixelpunkt().save(os.path.join(texturen, "pixel.png"), optimize=True)
     blatt_klein, breiten_klein = art.schrift_klein()
     blatt_gross, breiten_gross = art.schrift_gross()
+    blatt_item, breiten_item = art.sinnbilder()
     blatt_klein.save(os.path.join(texturen, "schrift_klein.png"), optimize=True)
     blatt_gross.save(os.path.join(texturen, "schrift_gross.png"), optimize=True)
+    blatt_item.save(os.path.join(texturen, "sinnbilder.png"), optimize=True)
     art.packbild().save(os.path.join(ziel, "pack.png"), optimize=True)
 
     with open(os.path.join(ziel, "metrics.properties"), "w", encoding="utf-8") as f:
-        f.write(metriken(breiten_klein, breiten_gross))
+        f.write(metriken(breiten_klein, breiten_gross, breiten_item))
 
     with open(os.path.join(assets, "font", FONT + ".json"), "w", encoding="utf-8") as f:
         json.dump(font_json(), f, ensure_ascii=False, indent=2)

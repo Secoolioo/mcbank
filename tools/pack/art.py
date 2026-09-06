@@ -112,8 +112,7 @@ def plakat():
 
     # --- Schlagzeile ---
     band = _band(*g.SCHLAGZEILE)
-    _text_ins_band(zeichner, mitte, (band[0] + 11, band[1] + 1), "GESUCHT",
-                   SCHRIFT_FETT, TINTE, breite * 0.70)
+    _text_ins_band(zeichner, mitte, band, "GESUCHT", SCHRIFT_FETT, TINTE, breite * 0.62)
 
     # --- Unterzeile mit Zierstrichen links und rechts ---
     band = _band(*g.UNTERZEILE)
@@ -131,10 +130,10 @@ def plakat():
     # --- Portraitrahmen: die Flaeche, in die der Server das Gesicht malt ---
     oben, unten = _band(*g.GESICHT)
     halb = (unten - oben) / 2
-    kasten = [mitte - halb - 4, oben - 4, mitte + halb + 4, unten + 4]
+    kasten = [mitte - halb - 3, oben - 3, mitte + halb + 3, unten + 3]
     zeichner.rectangle(kasten, fill=(28, 21, 15, 255))
     zeichner.rectangle(kasten, outline=TINTE, width=3)
-    zeichner.rectangle([kasten[0] + 4, kasten[1] + 4, kasten[2] - 4, kasten[3] - 4],
+    zeichner.rectangle([kasten[0] + 3, kasten[1] + 3, kasten[2] - 3, kasten[3] - 3],
                        outline=(126, 100, 66, 255), width=1)
     # Vier Ziernaegel in den Ecken des Rahmens.
     for ex in (kasten[0] + 2, kasten[2] - 2):
@@ -146,10 +145,15 @@ def plakat():
     zeichner.line([(mitte - breite * 0.36, oben - 4), (mitte + breite * 0.36, oben - 4)],
                   fill=TINTE_MATT, width=2)
 
-    # --- Fuss ---
+    # --- Fuss: eine Zierleiste. Text stand hier zu dicht an den Zahlen darueber. ---
     band = _band(*g.FUSS)
-    _text_ins_band(zeichner, mitte, (band[0] - 1, band[1] - 8), "AUSGESETZT VON DER BANK",
-                   SCHRIFT_HALB, TINTE, breite * 0.50, fuellgrad=1.0)
+    linie = (band[0] + band[1]) / 2
+    zeichner.line([(mitte - breite * 0.30, linie), (mitte + breite * 0.30, linie)],
+                  fill=TINTE_MATT, width=2)
+    for seite in (-1, 1):
+        x = mitte + seite * (breite * 0.32)
+        zeichner.polygon([(x, linie - 3), (x + seite * 5, linie), (x, linie + 3)],
+                         fill=TINTE_MATT)
 
     # --- Nagelloecher oben ---
     for seite in (-1, 1):
@@ -251,6 +255,67 @@ def schrift_klein():
 def schrift_gross():
     return _schriftblatt(g.GROSS_ZEICHEN, g.GROSS_ZELLE, g.GROSS_SPALTEN,
                          SCHRIFT_FETT, 0.84, g.GROSS_HEIGHT)
+
+
+def sinnbilder():
+    """Ein Sinnbild je Einsatz-Material, damit die Belohnung ohne Worte lesbar ist.
+
+    Gezeichnet, nicht kopiert: die Texturen von Minecraft gehoeren Mojang, und ein eigener
+    Entwurf passt ohnehin besser zur Anmutung des Plakats. Bloecke bekommen einen Wuerfel in
+    Schraegsicht, Rohstoffe ihre Edelsteinform - das reicht, um sie auseinanderzuhalten.
+    """
+    farben = {
+        "diamond": ((0x8F, 0xF5, 0xEA), (0x36, 0xC0, 0xB0), (0x1B, 0x7A, 0x70)),
+        "emerald": ((0x7C, 0xF7, 0xA8), (0x24, 0xC4, 0x5E), (0x0F, 0x76, 0x38)),
+        "netherite": ((0x7A, 0x66, 0x6D), (0x4A, 0x3B, 0x41), (0x2A, 0x20, 0x25)),
+    }
+    zelle = g.ITEM_ZELLE
+    bild = Image.new("RGBA", (zelle[0] * g.ITEM_SPALTEN, zelle[1]), (255, 255, 255, 0))
+    zeichner = ImageDraw.Draw(bild)
+
+    for i, name in enumerate(g.ITEM_NAMEN):
+        stoff = "netherite" if name.startswith("netherite") else name.split("_")[0]
+        hell, mittel, dunkel = farben[stoff]
+        x0 = i * zelle[0]
+        mx, my = x0 + zelle[0] / 2, zelle[1] / 2
+
+        if name.endswith("_block") or name == "netherite_block":
+            # Wuerfel in Schraegsicht: Deckflaeche hell, Vorderseite mittel, Seite dunkel.
+            b, h = 8.0, 4.5
+            zeichner.polygon([(mx, my - h - 5), (mx + b, my - 5), (mx, my + h - 5), (mx - b, my - 5)],
+                             fill=hell, outline=dunkel)
+            zeichner.polygon([(mx - b, my - 5), (mx, my + h - 5), (mx, my + h + 5), (mx - b, my + 5)],
+                             fill=mittel, outline=dunkel)
+            zeichner.polygon([(mx + b, my - 5), (mx, my + h - 5), (mx, my + h + 5), (mx + b, my + 5)],
+                             fill=dunkel, outline=dunkel)
+        elif name == "netherite_ingot":
+            # Barren: ein liegendes Trapez mit heller Oberkante.
+            zeichner.polygon([(mx - 8, my + 4), (mx - 6, my - 3), (mx + 6, my - 3), (mx + 8, my + 4)],
+                             fill=mittel, outline=dunkel)
+            zeichner.polygon([(mx - 6, my - 3), (mx - 4, my - 6), (mx + 4, my - 6), (mx + 6, my - 3)],
+                             fill=hell, outline=dunkel)
+        else:
+            # Edelstein: Rhombus mit heller Facette oben links.
+            zeichner.polygon([(mx, my - 8), (mx + 7, my), (mx, my + 8), (mx - 7, my)],
+                             fill=mittel, outline=dunkel)
+            zeichner.polygon([(mx, my - 8), (mx + 3, my - 2), (mx, my + 1), (mx - 4, my - 2)],
+                             fill=hell)
+
+    return _mit_breitenanker(bild, zelle, len(g.ITEM_NAMEN), g.ITEM_SPALTEN, g.ITEM_HEIGHT)
+
+
+def _mit_breitenanker(bild, zelle, anzahl, spalten, ziel_hoehe):
+    """Setzt je Zelle den Breiten-Anker und misst die Einzelbreiten."""
+    daten = np.array(bild)
+    breiten = {}
+    for i in range(anzahl):
+        spalte, zeile = i % spalten, i // spalten
+        aussch = daten[zeile * zelle[1]:(zeile + 1) * zelle[1],
+                       spalte * zelle[0]:(spalte + 1) * zelle[0], 3]
+        gefuellt = np.where(aussch.any(axis=0))[0]
+        quell_breite = int(gefuellt[-1]) + 1 if len(gefuellt) else 0
+        breiten[i] = int(np.ceil(quell_breite * ziel_hoehe / zelle[1])) + 1
+    return Image.fromarray(daten, "RGBA"), breiten
 
 
 def packbild():

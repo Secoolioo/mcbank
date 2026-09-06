@@ -47,6 +47,11 @@ final class PackFont {
     private final int[] largeWidths;
     private final int largeTop;
 
+    private final String[] itemNames;
+    private final int itemBase;
+    private final int[] itemWidths;
+    private final int itemTop;
+
     private final Spacing spacing;
 
     private PackFont(Properties p) {
@@ -70,6 +75,11 @@ final class PackFont {
         this.largeBase = number(p, "gross.basis");
         this.largeWidths = numbers(p, "gross.breiten", this.largeChars.length());
         this.largeTop = number(p, "gross.oben");
+
+        this.itemNames = require(p, "item.namen").trim().split("\\s+");
+        this.itemBase = number(p, "item.basis");
+        this.itemWidths = numbers(p, "item.breiten", this.itemNames.length);
+        this.itemTop = number(p, "item.oben");
 
         this.spacing = new Spacing(number(p, "abstand.plus"), number(p, "abstand.minus"),
                 number(p, "abstand.potenzen"));
@@ -205,6 +215,40 @@ final class PackFont {
     int largeWidth(char ziffer) {
         int i = this.largeChars.indexOf(ziffer);
         return i < 0 ? 0 : this.largeWidths[i];
+    }
+
+    /**
+     * Das Sinnbild eines Materials, oder 0.
+     *
+     * <p>Der Name ist der kleingeschriebene Bukkit-Name, also {@code diamond} oder
+     * {@code netherite_block} - so steht er auch in {@code metrics.properties}.
+     */
+    char item(String material) {
+        int i = indexOfItem(material);
+        return i < 0 ? 0 : (char) (this.itemBase + i);
+    }
+
+    int itemWidth(String material) {
+        int i = indexOfItem(material);
+        return i < 0 ? 0 : this.itemWidths[i];
+    }
+
+    private int indexOfItem(String material) {
+        for (int i = 0; i < this.itemNames.length; i++) {
+            if (this.itemNames[i].equals(material)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Die Materialien in der Reihenfolge, in der das Pack sie kennt - wertvollstes zuerst. */
+    java.util.List<String> itemNames() {
+        return java.util.List.of(this.itemNames);
+    }
+
+    int itemTop() {
+        return this.itemTop;
     }
 
     /** Die Breite eines Namens in der kleinen Schrift, unbekannte Zeichen uebersprungen. */

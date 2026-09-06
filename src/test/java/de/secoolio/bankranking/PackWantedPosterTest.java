@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -39,34 +40,61 @@ class PackWantedPosterTest {
         return new SkinFace(werte);
     }
 
+    private static List<PackWantedPoster.Loot> loot(Object... paare) {
+        List<PackWantedPoster.Loot> liste = new java.util.ArrayList<>();
+        for (int i = 0; i < paare.length; i += 2) {
+            liste.add(new PackWantedPoster.Loot((String) paare[i], (Integer) paare[i + 1]));
+        }
+        return liste;
+    }
+
     @Test
-    @DisplayName("Die Zeile hat die Gesamtbreite null, egal wie Name und Betrag aussehen")
+    @DisplayName("Die Zeile hat die Gesamtbreite null, egal wie Name und Belohnung aussehen")
     void totalAdvanceIsZero() throws IOException {
         PackWantedPoster p = poster();
+        List<List<PackWantedPoster.Loot>> beute = List.of(
+                loot(),
+                loot("diamond", 1),
+                loot("diamond", 999),
+                loot("netherite_block", 2, "diamond", 64),
+                loot("netherite_block", 1, "emerald", 12, "diamond", 7),
+                loot("unbekannt", 5));
         for (String name : new String[]{"A", "Secoolioo", "EinSehrLangerName123", "", "___"}) {
-            for (String betrag : new String[]{"0", "12.500", "1.234.567", "", "7"}) {
-                assertEquals(0, p.totalAdvance(SkinFace.UNKNOWN, name, betrag),
-                        "Name '" + name + "', Betrag '" + betrag + "'");
+            for (List<PackWantedPoster.Loot> b : beute) {
+                assertEquals(0, p.totalAdvance(SkinFace.UNKNOWN, name, b),
+                        "Name '" + name + "', Beute " + b);
             }
         }
     }
 
     @Test
+    @DisplayName("Mehr als zwei Posten passen nicht nebeneinander und entfallen")
+    void atMostTwoLootEntries() throws IOException {
+        Component drei = poster().render(SkinFace.UNKNOWN, "HANS",
+                loot("netherite_block", 1, "emerald", 2, "diamond", 3));
+        Component zwei = poster().render(SkinFace.UNKNOWN, "HANS",
+                loot("netherite_block", 1, "emerald", 2));
+        assertEquals(zwei.children().size(), drei.children().size(),
+                "der dritte Posten darf keine zusaetzliche Komponente erzeugen");
+    }
+
+    @Test
     @DisplayName("Ein einfarbiges Gesicht braucht nur eine Komponente je Zeile")
     void runLengthCollapsesRows() throws IOException {
-        Component c = poster().render(einfarbig(0x804020), "HANS", "100");
-        // Vier Zeichenfolgen sind nicht vom Gesicht: Hintergrund, Name, Betrag und der
-        // Ausgleich am Ende. Acht Zeilen zu je einer Komponente ergeben zusammen zwoelf.
-        assertEquals(12, c.children().size(),
+        Component c = poster().render(einfarbig(0x804020), "HANS", loot("diamond", 100));
+        // Fuenf Komponenten sind nicht vom Gesicht: Hintergrund, Name, das Sinnbild, die
+        // Zahl daneben und der Ausgleich am Ende. Acht Gesichtszeilen zu je einer ergeben
+        // zusammen dreizehn.
+        assertEquals(13, c.children().size(),
                 "Zusammenhaengende Punkte gleicher Farbe muessen zu einer Komponente werden");
     }
 
     @Test
     @DisplayName("Ein Schachbrett-Gesicht erzeugt jede Farbe einzeln")
     void checkerboardIsWorstCase() throws IOException {
-        Component c = poster().render(schachbrett(), "HANS", "100");
-        // Acht Zeilen zu acht Farbwechseln plus die vier Zeichenfolgen aussen herum.
-        assertEquals(68, c.children().size());
+        Component c = poster().render(schachbrett(), "HANS", loot("diamond", 100));
+        // Acht Zeilen zu acht Farbwechseln plus die fuenf Komponenten aussen herum.
+        assertEquals(69, c.children().size());
     }
 
     @Test
@@ -95,14 +123,14 @@ class PackWantedPosterTest {
         PackWantedPoster p = poster();
         assertEquals("UNBEKANNT", p.shorten("***"));
         assertEquals("UNBEKANNT", p.shorten(""));
-        assertEquals(0, p.totalAdvance(SkinFace.UNKNOWN, "***", "1"),
+        assertEquals(0, p.totalAdvance(SkinFace.UNKNOWN, "***", loot("diamond", 1)),
                 "auch der Rueckfallname muss die Zeile mittig lassen");
     }
 
     @Test
     @DisplayName("Die Zeile traegt die eigene Schrift und keinen Textschatten")
     void styleIsSet() throws IOException {
-        Component c = poster().render(SkinFace.UNKNOWN, "HANS", "100");
+        Component c = poster().render(SkinFace.UNKNOWN, "HANS", loot("diamond", 100));
         assertEquals("bankranking:kopfgeld", String.valueOf(c.style().font()));
         assertTrue(c.style().shadowColor() != null && c.style().shadowColor().alpha() == 0,
                 "Der Vanilla-Schatten wuerde die Glyphen unsauber wirken lassen");
@@ -112,7 +140,8 @@ class PackWantedPosterTest {
     @DisplayName("Das Plakat besteht nur aus Zeichen des eigenen Bereichs und Grossbuchstaben")
     void onlyKnownCharacters() throws IOException {
         String text = PlainTextComponentSerializer.plainText()
-                .serialize(poster().render(SkinFace.UNKNOWN, "Secoolioo", "12.500"));
+                .serialize(poster().render(SkinFace.UNKNOWN, "Secoolioo",
+                        loot("netherite_block", 3, "diamond", 64)));
         for (char z : text.toCharArray()) {
             boolean eigenerBereich = z >= 0xE000 && z <= 0xF8FF;
             boolean namensZeichen = (z >= 'A' && z <= 'Z') || (z >= '0' && z <= '9')

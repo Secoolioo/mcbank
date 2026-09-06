@@ -84,6 +84,29 @@ class BountyItemsTest {
     }
 
     @Test
+    @DisplayName("Java und Resourcepack kennen dieselbe Reihenfolge der Materialien")
+    void rankMatchesPack() throws java.io.IOException {
+        // Weichen die beiden ab, zeigt das Plakat das falsche Sinnbild - und zwar leise.
+        PackFont font = PackFontTest.bundled();
+        var ausPack = font.itemNames();
+        var ausJava = BountyItems.rank().stream()
+                .map(m -> m.name().toLowerCase(java.util.Locale.ROOT)).toList();
+        assertEquals(ausJava, ausPack);
+    }
+
+    @Test
+    @DisplayName("Die Belohnung wird zu Posten mit Sinnbild, wertvollstes zuerst")
+    void lootOrder() {
+        var posten = BountyItems.loot(items(
+                Material.DIAMOND, 64, Material.NETHERITE_BLOCK, 2, Material.EMERALD, 9));
+        assertEquals(3, posten.size());
+        assertEquals("netherite_block", posten.get(0).material());
+        assertEquals(2, posten.get(0).count());
+        assertEquals("emerald", posten.get(1).material());
+        assertEquals("diamond", posten.get(2).material());
+    }
+
+    @Test
     @DisplayName("Zwei Zaehlungen lassen sich zusammenfuehren")
     void merge() {
         Map<Material, Integer> summe = BountyItems.merge(
