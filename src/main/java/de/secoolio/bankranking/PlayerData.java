@@ -10,13 +10,16 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.logging.Logger;
 
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -42,6 +45,7 @@ public final class PlayerData {
     private final File file;
     private final Logger log;
     private final Map<UUID, Entry> entries = new TreeMap<>();
+    private final Map<UUID, Saturation> saturations = new HashMap<>();
     private boolean dirty;
     private boolean loadFailed;
 
@@ -57,6 +61,7 @@ public final class PlayerData {
      */
     public void load() {
         this.entries.clear();
+        this.saturations.clear();
         this.dirty = false;
         this.loadFailed = false;
         if (!this.file.exists()) {
@@ -126,7 +131,45 @@ public final class PlayerData {
             }
             String name = section.getString(key + ".name", "Unbekannt");
             target.put(id, new Entry(name, points));
+            readSaturation(section, key, id);
         }
+    }
+
+    /** Liest die Marktsaettigung eines Spielers, wenn sie in der Datei steht. */
+    private void readSaturation(ConfigurationSection section, String key, UUID id) {
+        ConfigurationSection block = section.getConfigurationSection(key + ".saettigung");
+        if (block == null) {
+            return;
+        }
+        Saturation saturation = new Saturation(block.getLong("stand", System.currentTimeMillis()));
+        ConfigurationSection werte = block.getConfigurationSection("werte");
+        if (werte != null) {
+            for (String materialKey : werte.getKeys(false)) {
+                Material material = Material.matchMaterial(materialKey);
+                if (material == null || material.isLegacy()) {
+                    continue;
+                }
+                double value = werte.getDouble(materialKey, 0.0);
+                if (Double.isFinite(value) && value > 0.0) {
+                    saturation.put(material, value);
+                }
+            }
+        }
+        if (!saturation.isEmpty()) {
+            this.saturations.put(id, saturation);
+        }
+    }
+
+    /**
+     * Die Marktsaettigung eines Spielers, mit eingerechnetem Zeitverfall.
+     *
+     * @param halfLifeHours Halbwertszeit aus der Konfiguration
+     */
+    public Saturation saturation(UUID id, double halfLifeHours) {
+        Saturation saturation = this.saturations.computeIfAbsent(id,
+                key -> new Saturation(System.currentTimeMillis()));
+        saturation.decay(System.currentTimeMillis(), halfLifeHours);
+        return saturation;
     }
 
     private void quarantine(Exception cause) {
@@ -232,8 +275,17 @@ public final class PlayerData {
         }
         YamlConfiguration yaml = new YamlConfiguration();
         for (Map.Entry<UUID, Entry> entry : this.entries.entrySet()) {
-            yaml.set("spieler." + entry.getKey() + ".name", entry.getValue().name());
-            yaml.set("spieler." + entry.getKey() + ".punkte", entry.getValue().points());
+            String base = "spieler." + entry.getKey();
+            yaml.set(base + ".name", entry.getValue().name());
+            yaml.set(base + ".punkte", entry.getValue().points());
+            Saturation saturation = this.saturations.get(entry.getKey());
+            if (saturation != null && !saturation.isEmpty()) {
+                yaml.set(base + ".saettigung.stand", saturation.lastDecay());
+                for (Map.Entry<Material, Double> amount : saturation.amounts().entrySet()) {
+                    yaml.set(base + ".saettigung.werte." + amount.getKey().name().toLowerCase(Locale.ROOT),
+                            Scorer.round1(amount.getValue()));
+                }
+            }
         }
         Path target = this.file.toPath();
         Path temp = target.resolveSibling(this.file.getName() + ".tmp");

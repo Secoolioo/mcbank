@@ -26,6 +26,18 @@ public final class Settings {
     public static final double DEFAULT_EPIC = 3.0;
     /** Grundwert fuer Materialien ohne eigenen Eintrag. */
     public static final double DEFAULT_FALLBACK_VALUE = 0.5;
+    /** Ab diesem Kontostand zaehlen Items nur noch die Haelfte (bei Staerke 1.0). */
+    public static final double DEFAULT_WEALTH_THRESHOLD = 5000.0;
+    /** Wie steil die Wohlstands-Bremse greift. */
+    public static final double DEFAULT_WEALTH_STRENGTH = 0.6;
+    /** So weit sinkt der Wertfaktor hoechstens. */
+    public static final double DEFAULT_WEALTH_FLOOR = 0.05;
+    /** Ab so vielen abgegebenen Rohpunkten je Material zaehlt es nur noch die Haelfte. */
+    public static final double DEFAULT_SATURATION_THRESHOLD = 5000.0;
+    /** Nach so vielen Stunden ist der Saettigungszaehler halbiert. */
+    public static final double DEFAULT_SATURATION_HALF_LIFE = 24.0;
+    /** So weit sinkt der Preis eines einzelnen Materials hoechstens. */
+    public static final double DEFAULT_SATURATION_FLOOR = 0.1;
     public static final double DEFAULT_ENCHANT_BONUS = 2.0;
     public static final String DEFAULT_NPC_NAME = "<gold><bold>Bank</bold></gold>";
     public static final String DEFAULT_NPC_DESCRIPTION = "<gray>Rechtsklick: Items abgeben";
@@ -35,6 +47,14 @@ public final class Settings {
     private final Map<Category, Double> categoryMultiplier;
     private final double enchantBonusPerLevel;
     private final double fallbackValue;
+    private final boolean wealthEnabled;
+    private final double wealthThreshold;
+    private final double wealthStrength;
+    private final double wealthFloor;
+    private final boolean saturationEnabled;
+    private final double saturationThreshold;
+    private final double saturationHalfLife;
+    private final double saturationFloor;
     private final Map<Material, Double> materialBase;
     private final Map<Material, Category> categoryOverrides;
     private final String npcName;
@@ -47,6 +67,7 @@ public final class Settings {
                      Map<Category, Double> categoryMultiplier,
                      double enchantBonusPerLevel,
                      double fallbackValue,
+                     double[] damping,
                      Map<Material, Double> materialBase,
                      Map<Material, Category> categoryOverrides,
                      String npcName,
@@ -58,6 +79,14 @@ public final class Settings {
         this.categoryMultiplier = categoryMultiplier;
         this.enchantBonusPerLevel = enchantBonusPerLevel;
         this.fallbackValue = fallbackValue;
+        this.wealthEnabled = damping[0] != 0.0;
+        this.wealthThreshold = damping[1];
+        this.wealthStrength = damping[2];
+        this.wealthFloor = damping[3];
+        this.saturationEnabled = damping[4] != 0.0;
+        this.saturationThreshold = damping[5];
+        this.saturationHalfLife = damping[6];
+        this.saturationFloor = damping[7];
         this.materialBase = Map.copyOf(materialBase);
         this.categoryOverrides = Map.copyOf(categoryOverrides);
         this.npcName = npcName;
@@ -87,6 +116,17 @@ public final class Settings {
 
         double bonus = readPositive(c, "punkte.verzauberung-bonus-pro-stufe", DEFAULT_ENCHANT_BONUS, log);
         double fallback = readPositive(c, "punkte.standardwert", DEFAULT_FALLBACK_VALUE, log);
+
+        double[] damping = {
+                readFlag(c, "punkte.wohlstands-bremse.aktiv"),
+                readPositive(c, "punkte.wohlstands-bremse.schwelle", DEFAULT_WEALTH_THRESHOLD, log),
+                readPositive(c, "punkte.wohlstands-bremse.staerke", DEFAULT_WEALTH_STRENGTH, log),
+                readPositive(c, "punkte.wohlstands-bremse.mindestfaktor", DEFAULT_WEALTH_FLOOR, log),
+                readFlag(c, "punkte.markt-saettigung.aktiv"),
+                readPositive(c, "punkte.markt-saettigung.schwelle", DEFAULT_SATURATION_THRESHOLD, log),
+                readPositive(c, "punkte.markt-saettigung.erholung-stunden", DEFAULT_SATURATION_HALF_LIFE, log),
+                readPositive(c, "punkte.markt-saettigung.mindestfaktor", DEFAULT_SATURATION_FLOOR, log),
+        };
 
         Map<Material, Double> materialBase = new HashMap<>();
         ConfigurationSection baseSection = c.getConfigurationSection("punkte.material-basiswerte");
@@ -130,7 +170,7 @@ public final class Settings {
         boolean sidebarEnabled = !c.isSet("sidebar.aktiv") || c.getBoolean("sidebar.aktiv", true);
         String sidebarTitle = readText(c, "sidebar.titel", DEFAULT_SIDEBAR_TITLE);
 
-        return new Settings(rarity, multipliers, bonus, fallback, materialBase, overrides,
+        return new Settings(rarity, multipliers, bonus, fallback, damping, materialBase, overrides,
                 npcName, npcDescription, confirmHead, sidebarEnabled, sidebarTitle);
     }
 
@@ -162,6 +202,15 @@ public final class Settings {
             return fallback;
         }
         return value;
+    }
+
+    /** Liest einen Schalter; fehlt er, gilt er als eingeschaltet. */
+    private static double readFlag(ConfigurationSection c, String path) {
+        Object raw = c.get(path, null);
+        if (raw instanceof Boolean flag) {
+            return flag ? 1.0 : 0.0;
+        }
+        return 1.0;
     }
 
     private static boolean isUsable(double value) {
@@ -196,6 +245,38 @@ public final class Settings {
 
     public double fallbackValue() {
         return this.fallbackValue;
+    }
+
+    public boolean wealthEnabled() {
+        return this.wealthEnabled;
+    }
+
+    public double wealthThreshold() {
+        return this.wealthThreshold;
+    }
+
+    public double wealthStrength() {
+        return this.wealthStrength;
+    }
+
+    public double wealthFloor() {
+        return this.wealthFloor;
+    }
+
+    public boolean saturationEnabled() {
+        return this.saturationEnabled;
+    }
+
+    public double saturationThreshold() {
+        return this.saturationThreshold;
+    }
+
+    public double saturationHalfLife() {
+        return this.saturationHalfLife;
+    }
+
+    public double saturationFloor() {
+        return this.saturationFloor;
     }
 
     public Map<Material, Double> materialBase() {
@@ -240,6 +321,8 @@ public final class Settings {
             sb.append(category.configKey()).append('=').append(Scorer.format(multiplier(category))).append(' ');
         }
         sb.append("| Bonus ").append(Scorer.format(this.enchantBonusPerLevel)).append("/Stufe | ")
+                .append("Wohlstands-Bremse ").append(this.wealthEnabled ? "an" : "aus").append(", ")
+                .append("Markt-Sättigung ").append(this.saturationEnabled ? "an" : "aus").append(" | ")
                 .append(this.materialBase.size()).append(" Material-Basiswerte, ")
                 .append(this.categoryOverrides.size()).append(" Kategorie-Überschreibungen");
         return sb.toString();

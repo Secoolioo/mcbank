@@ -111,32 +111,52 @@ public final class BankGui implements InventoryHolder {
             this.inventory.setItem(VALUE_SLOT, GuiItems.labelled(Material.LIGHT_GRAY_STAINED_GLASS_PANE,
                     Messages.WERT_ANZEIGE_LEER_NAME, List.of(Messages.WERT_ANZEIGE_LEER_LORE)));
         } else {
-            Scorer.Unpacked unpacked = Scorer.unpack(stacks);
-            List<Scorer.Valuation> valuations = new ArrayList<>();
-            int items = 0;
-            for (ItemStack stack : unpacked.valuables()) {
-                valuations.add(this.plugin.scorer().value(Scorer.facts(stack)));
-                items += stack.getAmount();
-            }
-            double total = this.plugin.scorer().total(valuations);
+            Scorer.Deposit preview = preview(player, stacks);
             List<String> lore = new ArrayList<>();
             for (String line : Messages.WERT_ANZEIGE_LORE) {
-                lore.add(line.replace("<anzahl>", String.valueOf(items))
-                        .replace("<punkte>", Scorer.format(total)));
+                lore.add(line.replace("<anzahl>", String.valueOf(preview.itemCount()))
+                        .replace("<roh>", Scorer.format(preview.rawTotal()))
+                        .replace("<punkte>", Scorer.format(preview.total()))
+                        .replace("<prozent>", percent(preview.rawTotal(), preview.total())));
             }
             this.inventory.setItem(VALUE_SLOT,
                     GuiItems.labelled(Material.GOLD_INGOT, Messages.WERT_ANZEIGE_NAME, lore));
         }
 
         int rank = this.plugin.playerData().rank(player.getUniqueId());
+        double balance = this.plugin.playerData().get(player.getUniqueId());
+        Rank stufe = Rank.of(balance);
+        double wealth = this.plugin.scorer().wealthFactor(balance);
         List<String> accountLore = new ArrayList<>();
         for (String line : Messages.KONTO_ANZEIGE_LORE) {
             accountLore.add(line
-                    .replace("<punkte>", Scorer.format(this.plugin.playerData().get(player.getUniqueId())))
-                    .replace("<platz>", rank == 0 ? Messages.KONTO_ANZEIGE_OHNE_PLATZ : String.valueOf(rank)));
+                    .replace("<punkte>", Scorer.format(balance))
+                    .replace("<platz>", rank == 0 ? Messages.KONTO_ANZEIGE_OHNE_PLATZ : String.valueOf(rank))
+                    .replace("<rang>", stufe.colored())
+                    .replace("<faktor>", Scorer.format(wealth * 100.0)));
         }
         this.inventory.setItem(ACCOUNT_SLOT,
                 GuiItems.labelled(Material.BOOK, Messages.KONTO_ANZEIGE_NAME, accountLore));
+    }
+
+    /**
+     * Rechnet eine Einzahlung durch, ohne etwas zu buchen: auf einer Kopie der Marktsaettigung,
+     * damit die Anzeige den Zaehler nicht hochtreibt.
+     */
+    private Scorer.Deposit preview(Player player, List<ItemStack> stacks) {
+        Scorer.Unpacked unpacked = Scorer.unpack(stacks);
+        Saturation live = this.plugin.saturationOf(player);
+        Saturation copy = new Saturation(live.lastDecay());
+        live.amounts().forEach(copy::put);
+        return this.plugin.scorer().deposit(unpacked.valuables(), copy,
+                this.plugin.playerData().get(player.getUniqueId()));
+    }
+
+    private static String percent(double raw, double actual) {
+        if (raw <= 0.0) {
+            return "100";
+        }
+        return String.valueOf(Math.round(actual / raw * 100.0));
     }
 
     /** Verrechnet den Inhalt. Das Fenster bleibt danach offen und leer. */
@@ -148,13 +168,11 @@ public final class BankGui implements InventoryHolder {
         }
 
         Scorer.Unpacked unpacked = Scorer.unpack(stacks);
-        List<Scorer.Valuation> valuations = new ArrayList<>();
-        int itemCount = 0;
-        for (ItemStack stack : unpacked.valuables()) {
-            valuations.add(this.plugin.scorer().value(Scorer.facts(stack)));
-            itemCount += stack.getAmount();
-        }
-        double total = this.plugin.scorer().total(valuations);
+        // Hier wird die Marktsaettigung wirklich fortgeschrieben, nicht nur gelesen.
+        Scorer.Deposit deposit = this.plugin.scorer().deposit(unpacked.valuables(),
+                this.plugin.saturationOf(player), this.plugin.playerData().get(player.getUniqueId()));
+        double total = deposit.total();
+        int itemCount = deposit.itemCount();
         if (total <= 0.0) {
             deny(player, Messages.BANK_WERTLOS);
             return;
@@ -186,6 +204,19 @@ public final class BankGui implements InventoryHolder {
                 Placeholder.unparsed("anzahl", String.valueOf(itemCount)),
                 Placeholder.unparsed("punkte", Scorer.format(total)),
                 Placeholder.unparsed("gesamt", Scorer.format(result.total())));
+        if (deposit.total() < deposit.rawTotal() - 0.05) {
+            this.plugin.send(player, Messages.BANK_GEDAEMPFT,
+                    Placeholder.unparsed("roh", Scorer.format(deposit.rawTotal())),
+                    Placeholder.unparsed("prozent", percent(deposit.rawTotal(), deposit.total())));
+        }
+        Rank before = Rank.of(result.total() - total);
+        Rank after = Rank.of(result.total());
+        if (after != before) {
+            player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE,
+                    SoundCategory.MASTER, 0.8f, 1.0f);
+            this.plugin.send(player, Messages.RANG_AUFSTIEG,
+                    Placeholder.parsed("rang", after.colored()));
+        }
         if (!unpacked.emptiedContainers().isEmpty()) {
             this.plugin.send(player, Messages.BANK_BEHAELTER_ZURUECK);
         }
@@ -193,7 +224,8 @@ public final class BankGui implements InventoryHolder {
             this.plugin.send(player, Messages.BANK_ZURUECK_BODEN);
         }
         this.plugin.getLogger().info("Einzahlung: " + player.getName() + " +" + Scorer.format(total)
-                + " (" + valuations.size() + " Stapel, " + itemCount + " Items) -> " + Scorer.format(result.total()));
+                + " (roh " + Scorer.format(deposit.rawTotal()) + ", " + deposit.valuations().size()
+                + " Stapel, " + itemCount + " Items) -> " + Scorer.format(result.total()));
         updateInfo(player);
         this.plugin.ranking().refreshAll();
     }

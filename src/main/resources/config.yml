@@ -71,6 +71,31 @@ punkte:
   # (meist Bau- und Dekobloecke).
   standardwert: 0.5
 
+  # ----- Bremse 1: je reicher, desto weniger zaehlt ein Item -----
+  # Damit die Rangliste spannend bleibt und niemand uneinholbar davonzieht.
+  # Faktor = (schwelle / (schwelle + Kontostand)) hoch staerke
+  # Mit den Standardwerten:   0 Punkte -> 100%,  5.000 -> 66%,  50.000 -> 24%,  150.000 -> 13%
+  # Kleinere staerke = sanfter (0.4), groessere = haerter (1.0).
+  wohlstands-bremse:
+    aktiv: true
+    schwelle: 5000.0
+    staerke: 0.6
+    # Weiter faellt der Faktor nie, damit Abgeben immer noch etwas bringt.
+    mindestfaktor: 0.05
+
+  # ----- Bremse 2: Marktsaettigung je Material -----
+  # Wer denselben Rohstoff massenhaft abliefert, drueckt dessen Preis - so bringen Farmen
+  # immer weniger, ohne dass seltene Einzelfunde darunter leiden.
+  # Faktor = schwelle / (schwelle + bereits abgegebene Rohpunkte dieses Materials)
+  # Beispiel Eisen (6 Punkte je Barren): nach 833 Barren zaehlt Eisen nur noch die Haelfte.
+  markt-saettigung:
+    aktiv: true
+    schwelle: 5000.0
+    # Halbwertszeit in Stunden: nach dieser Zeit ist der Zaehler halbiert, der Preis erholt sich.
+    erholung-stunden: 24.0
+    # So weit sinkt der Preis eines Materials hoechstens.
+    mindestfaktor: 0.1
+
   # OPTIONAL: Eigener Grundwert fuer einzelne Materialien - ueberschreibt die eingebaute Tabelle.
   # Material-Namen wie bei /give (Gross-/Kleinschreibung egal).
   # Beispiel:

@@ -259,6 +259,11 @@ public final class RankingBoard {
                     Placeholder.unparsed("platz", String.valueOf(rank)),
                     Placeholder.unparsed("punkte", Scorer.format(ownPoints))));
         }
+        Rank stufe = Rank.of(ownPoints);
+        lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_RANG
+                        .replace("<rang>", stufe.colored()),
+                Placeholder.unparsed("faktor",
+                        String.valueOf(Math.round(this.plugin.scorer().wealthFactor(ownPoints) * 100.0)))));
         lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_TODE,
                 Placeholder.unparsed("tode", String.valueOf(player.getStatistic(Statistic.DEATHS)))));
         lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_TAG,

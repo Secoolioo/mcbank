@@ -118,6 +118,71 @@ class ScorerTest {
     }
 
     @Test
+    @DisplayName("Die Wohlstands-Bremse sinkt mit dem Kontostand und nie unter den Mindestfaktor")
+    void wealthFactorFalls() {
+        assertEquals(1.0, this.scorer.wealthFactor(0), 1e-9);
+        assertEquals(1.0, this.scorer.wealthFactor(-100), 1e-9);
+        assertEquals(0.66, this.scorer.wealthFactor(5_000), 0.01);
+        assertEquals(0.24, this.scorer.wealthFactor(50_000), 0.01);
+        assertEquals(0.13, this.scorer.wealthFactor(150_000), 0.01);
+        assertTrue(this.scorer.wealthFactor(100_000_000) >= Settings.DEFAULT_WEALTH_FLOOR);
+        assertTrue(this.scorer.wealthFactor(10_000) < this.scorer.wealthFactor(5_000));
+    }
+
+    @Test
+    @DisplayName("Die Marktsättigung sinkt mit der abgegebenen Menge")
+    void saturationFalls() {
+        assertEquals(1.0, this.scorer.saturationFactor(0), 1e-9);
+        assertEquals(0.5, this.scorer.saturationFactor(5_000), 1e-9);
+        assertEquals(0.2, this.scorer.saturationFactor(20_000), 1e-9);
+        assertTrue(this.scorer.saturationFactor(10_000_000) >= Settings.DEFAULT_SATURATION_FLOOR);
+    }
+
+    @Test
+    @DisplayName("Beide Bremsen lassen sich abschalten")
+    void dampingCanBeDisabled() {
+        Settings settings = Settings.load(TestSupport.config("""
+                punkte:
+                  wohlstands-bremse:
+                    aktiv: false
+                  markt-saettigung:
+                    aktiv: false
+                """), new TestSupport.RecordingLogger());
+        Scorer plain = new Scorer(settings,
+                new CategoryClassifier(settings.categoryOverrides(), TestSupport.EDIBLE::contains));
+        assertEquals(1.0, plain.wealthFactor(1_000_000), 1e-9);
+        assertEquals(1.0, plain.saturationFactor(1_000_000), 1e-9);
+    }
+
+    @Test
+    @DisplayName("Der Sättigungszähler baut sich mit der Zeit wieder ab")
+    void saturationDecays() {
+        long start = 1_700_000_000_000L;
+        Saturation saturation = new Saturation(start);
+        saturation.add(Material.IRON_INGOT, 4000.0);
+        // nach einer Halbwertszeit die Hälfte
+        saturation.decay(start + 24 * 3_600_000L, 24.0);
+        assertEquals(2000.0, saturation.amount(Material.IRON_INGOT), 0.5);
+        // nach einer weiteren nochmals die Hälfte
+        saturation.decay(start + 48 * 3_600_000L, 24.0);
+        assertEquals(1000.0, saturation.amount(Material.IRON_INGOT), 0.5);
+    }
+
+    @Test
+    @DisplayName("Ränge richten sich nach dem Kontostand")
+    void ranks() {
+        assertEquals(Rank.BRONZE, Rank.of(0));
+        assertEquals(Rank.BRONZE, Rank.of(999));
+        assertEquals(Rank.SILBER, Rank.of(1_000));
+        assertEquals(Rank.GOLD, Rank.of(5_000));
+        assertEquals(Rank.PLATIN, Rank.of(20_000));
+        assertEquals(Rank.DIAMANT, Rank.of(50_000));
+        assertEquals(Rank.NETHERITE, Rank.of(1_000_000));
+        assertEquals(1_000, Rank.BRONZE.nextAt());
+        assertEquals(0, Rank.NETHERITE.nextAt());
+    }
+
+    @Test
     @DisplayName("Punkte werden deutsch mit einer Nachkommastelle angezeigt")
     void formatsGerman() {
         assertEquals("1234,5", Scorer.format(1234.5));

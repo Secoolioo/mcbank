@@ -33,6 +33,12 @@ class SettingsTest {
         assertTrue(settings.materialBase().isEmpty());
         assertTrue(settings.categoryOverrides().isEmpty());
         assertTrue(settings.sidebarEnabled());
+        assertTrue(settings.wealthEnabled());
+        assertTrue(settings.saturationEnabled());
+        assertEquals(Settings.DEFAULT_WEALTH_THRESHOLD, settings.wealthThreshold(), 1e-9);
+        assertEquals(Settings.DEFAULT_WEALTH_STRENGTH, settings.wealthStrength(), 1e-9);
+        assertEquals(Settings.DEFAULT_SATURATION_THRESHOLD, settings.saturationThreshold(), 1e-9);
+        assertEquals(Settings.DEFAULT_SATURATION_HALF_LIFE, settings.saturationHalfLife(), 1e-9);
         assertEquals(Settings.DEFAULT_NPC_NAME, settings.npcName());
         assertEquals(Settings.DEFAULT_SIDEBAR_TITLE, settings.sidebarTitle());
         assertTrue(log.warnings().isEmpty(), () -> "unerwartete Warnungen: " + log.warnings());
@@ -47,8 +53,9 @@ class SettingsTest {
         assertEquals(2.0, settings.enchantBonusPerLevel(), 1e-9);
         assertEquals(0.5, settings.fallbackValue(), 1e-9);
         assertEquals(Settings.DEFAULT_NPC_NAME, settings.npcName());
-        // vier Seltenheits-Faktoren, sechs Kategorien, Verzauberungs-Bonus und Standardwert
-        assertEquals(12, log.warnings().size(), () -> "Warnungen: " + log.warnings());
+        // vier Seltenheits-Faktoren, sechs Kategorien, Verzauberungs-Bonus, Standardwert
+        // sowie je drei Zahlenwerte der beiden Bremsen
+        assertEquals(18, log.warnings().size(), () -> "Warnungen: " + log.warnings());
     }
 
     @Test

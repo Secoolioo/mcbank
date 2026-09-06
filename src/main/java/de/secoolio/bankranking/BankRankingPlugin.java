@@ -110,6 +110,11 @@ public final class BankRankingPlugin extends JavaPlugin {
         return this.scorer;
     }
 
+    /** Die Marktsaettigung eines Spielers, mit eingerechnetem Zeitverfall. */
+    public Saturation saturationOf(org.bukkit.entity.Player player) {
+        return this.playerData.saturation(player.getUniqueId(), this.settings.saturationHalfLife());
+    }
+
     public PlayerData playerData() {
         return this.playerData;
     }

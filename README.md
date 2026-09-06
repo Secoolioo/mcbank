@@ -11,7 +11,7 @@ Punkte bekommen, plus eine Rangliste am rechten Bildschirmrand.
 - **Items abgeben**: alles hineinlegen, jederzeit wieder herausnehmen. Erst der Haken-Knopf unten
   in der Mitte verrechnet den Inhalt. Fenster schließen ohne Klick = alles zurück.
 - **Shulker-Boxen und Bündel** werden geleert: der Inhalt zählt, die leere Box kommt zurück.
-- **Rangliste** rechts im Bild: Top 3, eigener Platz, eigene Tode, aktueller Minecraft-Tag.
+- **Rangliste** rechts im Bild: Top 3, eigener Platz, Rang, eigene Tode, aktueller Minecraft-Tag.
 - **Punkte** nach einer frei konfigurierbaren Formel, siehe unten.
 
 ## Befehle
@@ -50,8 +50,26 @@ Punkte = Grundwert × Anzahl × Kategorie-Faktor × Seltenheits-Faktor
 Beispiele mit den Standardwerten: 64 Bruchstein ergeben 3,2 Punkte, ein Diamantschwert mit
 Schärfe V und Haltbarkeit III 156 Punkte, eine Elytra 900 Punkte.
 
+## Zwei Bremsen gegen Farmen
+
+Damit niemand uneinholbar davonzieht und Farmen nicht alles entscheiden, wird der Rohwert zweimal
+gedämpft:
+
+**Wohlstands-Bremse.** Je mehr Punkte jemand hat, desto weniger zählt jedes weitere Item. Mit den
+Standardwerten zählt ein Item bei 5.000 Punkten noch 66 Prozent, bei 50.000 noch 24 Prozent. Die
+Kurve ist weich, es gibt also keine Sprünge. Sichtbar wird sie als Rang: Bronze, Silber, Gold,
+Platin, Diamant, Netherite.
+
+**Marktsättigung.** Wer denselben Rohstoff massenhaft abliefert, drückt dessen Preis, so wie ein
+Markt, den man mit Ware überschwemmt. Nach etwa 833 Eisenbarren zählt Eisen nur noch die Hälfte.
+Der Zähler halbiert sich täglich, eine Pause stellt den Preis also wieder her. Seltene Einzelfunde
+bleiben davon unberührt, weil der Zähler pro Material geführt wird.
+
+Beide Bremsen lassen sich in der Konfiguration einstellen oder abschalten.
+
 Alle Zahlen stehen in `plugins/BankRanking/config.yml` und lassen sich mit `/bankranking reload`
-ohne Neustart ändern. `/bankranking wert` zeigt die komplette Rechnung für das Item in der Hand.
+ohne Neustart ändern. `/bankranking wert` zeigt die komplette Rechnung für das Item in der Hand,
+einschließlich beider Bremsen.
 
 ## Dateien auf dem Server
 
@@ -69,7 +87,7 @@ Es genügt eine Java-Laufzeit; Gradle lädt sich das nötige JDK 25 selbst nach 
 ./gradlew build
 ```
 
-Ergebnis: `build/libs/BankRanking-1.1.0.jar`.
+Ergebnis: `build/libs/BankRanking-1.2.0.jar`.
 
 ## Herunterladen
 
@@ -79,7 +97,7 @@ und im Ordner `dist/`.
 Direkt auf dem Server, im Ordner `plugins/`:
 
 ```bash
-wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-1.1.0.jar
+wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-1.2.0.jar
 ```
 
 Oder das ganze Projekt holen:

@@ -43,6 +43,14 @@ public final class BankCommands {
                     String suffix = rank == 0 ? "" : Messages.KONTOSTAND_PLATZ.replace("<platz>", String.valueOf(rank));
                     plugin.send(player, Messages.KONTOSTAND.replace("<platz>", suffix),
                             Placeholder.unparsed("punkte", Scorer.format(points)));
+                    Rank stufe = Rank.of(points);
+                    long faktor = Math.round(plugin.scorer().wealthFactor(points) * 100.0);
+                    player.sendMessage(Messages.mm(Messages.KONTOSTAND_RANG
+                            .replace("<rang>", stufe.colored())
+                            .replace("<faktor>", String.valueOf(faktor))
+                            .replace("<naechster>", stufe.nextAt() == 0
+                                    ? Messages.KONTOSTAND_HOECHSTER
+                                    : Scorer.format(stufe.nextAt()))));
                     return Command.SINGLE_SUCCESS;
                 })
                 .build(), "Zeigt deinen Punktestand");
@@ -217,7 +225,12 @@ public final class BankCommands {
             return Command.SINGLE_SUCCESS;
         }
 
-        Scorer.Valuation valuation = plugin.scorer().value(Scorer.facts(unpacked.valuables().get(0)));
+        ItemStack single = unpacked.valuables().get(0);
+        double balance = plugin.playerData().get(player.getUniqueId());
+        double given = plugin.saturationOf(player).amount(single.getType());
+        double saturation = plugin.scorer().saturationFactor(given);
+        Scorer.Valuation valuation = plugin.scorer().value(Scorer.facts(single), saturation);
+        double wealth = plugin.scorer().wealthFactor(balance);
         plugin.send(player, Messages.WERT_KOPF,
                 Placeholder.unparsed("material", valuation.facts().material().name()),
                 Placeholder.unparsed("anzahl", String.valueOf(valuation.facts().amount())));
@@ -238,7 +251,14 @@ public final class BankCommands {
                 Placeholder.unparsed("faktor", Scorer.format(valuation.multiplier())),
                 Placeholder.unparsed("seltenheit", Scorer.format(valuation.rarityFactor())),
                 Placeholder.unparsed("bonus", Scorer.format(valuation.enchantBonus())),
-                Placeholder.unparsed("punkte", Scorer.format(valuation.points()))));
+                Placeholder.unparsed("punkte", Scorer.format(valuation.rawPoints()))));
+        player.sendMessage(Messages.mm(Messages.WERT_SAETTIGUNG,
+                Placeholder.unparsed("faktor", String.valueOf(Math.round(saturation * 100.0)))));
+        player.sendMessage(Messages.mm(Messages.WERT_WOHLSTAND
+                        .replace("<rang>", Rank.of(balance).colored()),
+                Placeholder.unparsed("faktor", String.valueOf(Math.round(wealth * 100.0)))));
+        player.sendMessage(Messages.mm(Messages.WERT_ENDWERT,
+                Placeholder.unparsed("punkte", Scorer.format(valuation.rawPoints() * saturation * wealth))));
         return Command.SINGLE_SUCCESS;
     }
 

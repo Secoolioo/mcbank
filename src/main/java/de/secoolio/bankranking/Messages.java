@@ -23,11 +23,12 @@ public final class Messages {
             "<red>\u26a0 Die Items sind danach weg.",
             "<dark_gray>Fenster schließen = alles zurück"
     };
-    /** <punkte> = aktueller Wert der eingelegten Items, <anzahl> = Anzahl der Items. */
+    /** <roh> = Wert ohne Bremsen, <punkte> = tatsaechlicher Wert, <prozent> = Verhaeltnis. */
     public static final String WERT_ANZEIGE_NAME = "<gold><bold>Aktueller Wert</bold></gold>";
     public static final String[] WERT_ANZEIGE_LORE = {
             "<gray>Eingelegt: <white><anzahl></white> Items",
-            "<gray>Wert: <gold><punkte></gold> Punkte"
+            "<gray>Grundwert: <dark_gray><roh></dark_gray>",
+            "<gray>Du bekommst: <gold><punkte></gold> Punkte <dark_gray>(<prozent>%)</dark_gray>"
     };
     public static final String WERT_ANZEIGE_LEER_NAME = "<gray><bold>Noch nichts eingelegt</bold></gray>";
     public static final String[] WERT_ANZEIGE_LEER_LORE = {
@@ -38,7 +39,11 @@ public final class Messages {
     public static final String KONTO_ANZEIGE_NAME = "<aqua><bold>Dein Konto</bold></aqua>";
     public static final String[] KONTO_ANZEIGE_LORE = {
             "<gray>Punkte: <gold><punkte></gold>",
-            "<gray>Platz: <white><platz></white>"
+            "<gray>Platz: <white><platz></white>",
+            "<gray>Rang: <rang>",
+            "",
+            "<dark_gray>Items zählen bei dir <faktor>%",
+            "<dark_gray>Je reicher, desto weniger je Item."
     };
     public static final String KONTO_ANZEIGE_OHNE_PLATZ = "<gray>noch keiner</gray>";
 
@@ -49,6 +54,12 @@ public final class Messages {
     public static final String BANK_BESTAETIGT =
             "<green>Du hast <white><anzahl></white> Items abgegeben und <gold><punkte></gold> Punkte erhalten."
                     + " Kontostand: <gold><gesamt></gold>";
+    /** <roh> = Wert ohne Bremsen, <prozent> = wie viel davon uebrig blieb. */
+    public static final String BANK_GEDAEMPFT =
+            "<dark_gray>Grundwert wäre <roh> gewesen - du bekommst <prozent>%,"
+                    + " weil dein Konto wächst und der Markt gesättigt ist.";
+    public static final String RANG_AUFSTIEG =
+            "<gold><bold>Aufstieg!</bold></gold> <gray>Du bist jetzt <rang><gray>.";
     public static final String BANK_BEHAELTER_ZURUECK = "<gray>Leere Behälter hast du zurückbekommen.";
     public static final String BANK_ZURUECK = "<gray>Nichts abgegeben - du hast deine Items zurückbekommen.";
     public static final String BANK_ZURUECK_BODEN =
@@ -56,6 +67,12 @@ public final class Messages {
 
     public static final String KONTOSTAND = "<green>Dein Kontostand: <gold><punkte></gold> Punkte<platz>.";
     public static final String KONTOSTAND_PLATZ = " <gray>(Platz <white><platz></white>)</gray>";
+
+    /** <rang>, <faktor> = Wertfaktor in Prozent, <naechster> = Punkte bis zum naechsten Rang. */
+    public static final String KONTOSTAND_RANG =
+            "<gray>Rang: <rang> <dark_gray>|</dark_gray> <gray>Items zählen bei dir <white><faktor>%</white>"
+                    + " <dark_gray>|</dark_gray> <gray>nächster Rang ab <white><naechster></white>";
+    public static final String KONTOSTAND_HOECHSTER = "höchster erreicht";
 
     public static final String REICHSTE_KOPF = "<gold><bold>Die reichsten Spieler</bold></gold>";
     public static final String REICHSTE_ZEILE =
@@ -122,6 +139,14 @@ public final class Messages {
             "<gray>Behälter mit <white><stapel></white> Stapeln Inhalt - der Behälter selbst kommt zurück.";
     public static final String WERT_GESAMT =
             "<gray>Gesamtwert des Inhalts: <gold><bold><punkte></bold></gold> Punkte";
+    /** <faktor> = Marktsaettigung in Prozent. */
+    public static final String WERT_SAETTIGUNG =
+            "<gray>Markt-Sättigung: <white><faktor>%</white> <dark_gray>(sinkt, je mehr du davon abgibst)";
+    /** <faktor> = Wohlstands-Bremse in Prozent, <rang> = aktueller Rang. */
+    public static final String WERT_WOHLSTAND =
+            "<gray>Dein Rang <rang><gray>: <white><faktor>%</white> <dark_gray>(sinkt mit deinem Kontostand)";
+    public static final String WERT_ENDWERT =
+            "<gray>Tatsächlich: <gold><bold><punkte></bold></gold> Punkte";
     public static final String WERT_SUMME =
             "<gray>= <white><basis></white> * <white><anzahl></white> * <white><faktor></white>"
                     + " * <white><seltenheit></white> + <white><bonus></white>"
@@ -131,6 +156,8 @@ public final class Messages {
             "<yellow><platz>.</yellow> <white><name></white> <gold><punkte></gold>";
     public static final String SIDEBAR_ZEILE_ICH = "<aqua>Du:</aqua> Platz <white><platz></white> <gold><punkte></gold>";
     public static final String SIDEBAR_ZEILE_ICH_LEER = "<aqua>Du:</aqua> <gray>noch keine Punkte";
+    /** <rang> = Rangname mit Farbe, <faktor> = Wertfaktor in Prozent. */
+    public static final String SIDEBAR_ZEILE_RANG = "<gray>Rang:</gray> <rang> <dark_gray>(<faktor>%)";
     public static final String SIDEBAR_ZEILE_TODE = "<red>Tode:</red> <white><tode></white>";
     public static final String SIDEBAR_ZEILE_TAG = "<gray>Tag <white><tag></white>";
 
