@@ -32,6 +32,7 @@ public final class BankRankingPlugin extends JavaPlugin {
     private ResourcePacks packs;
     private BountyData bountyData;
     private BountyService bounties;
+    private LootBoxes lootBoxes;
 
     @Override
     public void onEnable() {
@@ -54,12 +55,14 @@ public final class BankRankingPlugin extends JavaPlugin {
         this.bountyData = new BountyData(new File(getDataFolder(), "kopfgelder.yml"), getLogger());
         this.bountyData.load();
         this.bounties = new BountyService(this, this.bountyData);
+        this.lootBoxes = new LootBoxes(this);
 
         // Das Resourcepack ist Beiwerk: scheitert es, laeuft die Bank unveraendert weiter und
         // das Kopfgeld zeigt spaeter die Sparfassung.
         this.packs = ResourcePacks.start(this);
 
         getServer().getPluginManager().registerEvents(new BankListener(this), this);
+        getServer().getPluginManager().registerEvents(this.lootBoxes, this);
         if (this.packs != null) {
             getServer().getPluginManager().registerEvents(this.packs, this);
         }
@@ -75,6 +78,7 @@ public final class BankRankingPlugin extends JavaPlugin {
                 this.ranking.enable(player);
                 this.bounties.refresh(player);
             }
+            this.lootBoxes.restoreAll();
         });
         if (this.packs != null) {
             // Der Selbsttest holt das Pack ueber die eigene Adresse ab. Er laeuft neben dem
@@ -123,6 +127,11 @@ public final class BankRankingPlugin extends JavaPlugin {
         if (this.ranking != null) {
             this.ranking.shutdown();
         }
+        if (this.lootBoxes != null) {
+            // Die Anzeige-Entitaeten sind nicht persistent, wuerden ein Neuladen des Plugins
+            // aber als verwaiste Kisten ueberleben.
+            this.lootBoxes.shutdown();
+        }
         if (this.bounties != null) {
             // Roter TAB-Name und Balken duerfen das Plugin nicht ueberleben.
             this.bounties.shutdown();
@@ -153,9 +162,11 @@ public final class BankRankingPlugin extends JavaPlugin {
         // Erst alles zuruecksetzen, dann aus den frischen Daten neu setzen: sonst bliebe ein
         // Name rot, dessen Topf von Hand aus der Datei entfernt wurde.
         this.bounties.shutdown();
+        this.lootBoxes.shutdown();
         for (Player player : getServer().getOnlinePlayers()) {
             this.bounties.refresh(player);
         }
+        this.lootBoxes.restoreAll();
         getLogger().info("Neu geladen: " + this.settings.summaryLine());
         return dataOk && bountyOk;
     }
@@ -219,6 +230,10 @@ public final class BankRankingPlugin extends JavaPlugin {
 
     public BountyService bounties() {
         return this.bounties;
+    }
+
+    public LootBoxes lootBoxes() {
+        return this.lootBoxes;
     }
 
     public RankingBoard ranking() {

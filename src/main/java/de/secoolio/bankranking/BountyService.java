@@ -269,9 +269,18 @@ public final class BountyService {
         if (abgeholt > 0) {
             this.plugin.send(owner, Messages.BEUTE_ABGEHOLT,
                     Placeholder.unparsed("anzahl", String.valueOf(abgeholt)));
+            owner.playSound(owner.getLocation(), org.bukkit.Sound.BLOCK_AMETHYST_BLOCK_CHIME,
+                    org.bukkit.SoundCategory.MASTER, 0.6f, 1.5f);
         }
-        if (!uebrig.isEmpty()) {
+        if (uebrig.isEmpty()) {
+            // Leer: die Kiste loest sich auf.
+            this.plugin.lootBoxes().dissolve(owner.getUniqueId(),
+                    beute.hasLocation() ? new org.bukkit.Location(
+                            this.plugin.getServer().getWorld(beute.world()),
+                            beute.x(), beute.y(), beute.z()) : owner.getLocation());
+        } else {
             this.plugin.send(owner, Messages.BEUTE_INVENTAR_VOLL);
+            this.plugin.lootBoxes().spawn(owner);
         }
     }
 
