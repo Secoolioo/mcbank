@@ -88,7 +88,9 @@ GROSS_ASCENT = ascent_fuer(BELOHNUNG[0])                             # -16
 
 # Zeichenvorrat. Spielernamen bestehen nur aus A-Z, a-z, 0-9 und _; fuer das Plakat werden
 # sie in Grossbuchstaben gesetzt, damit dieser Satz reicht.
-KLEIN_ZEICHEN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-. "
+# Ohne Leerzeichen: Spielernamen enthalten keines, und ein Wert, der in
+# metrics.properties auf ein Leerzeichen endet, waere beim Einlesen zerbrechlich.
+KLEIN_ZEICHEN = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-."
 KLEIN_SPALTEN = 8
 
 # Die grossen Ziffern liegen im Privatnutzungsbereich statt auf echten Ziffern: sonst
