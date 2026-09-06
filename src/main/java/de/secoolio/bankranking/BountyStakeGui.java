@@ -260,7 +260,9 @@ public final class BountyStakeGui implements BankWindow {
             this.inventory.setItem(slot, null);
         }
         updateInfo();
-        this.plugin.windows().closeLater(player);
+        // Nicht schliessen, sondern in die Uebersicht wechseln: sonst verschwindet im selben
+        // Moment aus dem Blick, was der Spieler gerade angerichtet hat.
+        this.plugin.windows().openLater(player, new BountyListGui(this.plugin));
     }
 
     private void meldung(Player player, BountyService.PlaceResult ergebnis) {

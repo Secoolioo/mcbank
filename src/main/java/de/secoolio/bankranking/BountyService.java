@@ -162,6 +162,10 @@ public final class BountyService {
         this.plugin.send(placer, ersterEinsatz ? Messages.KOPFGELD_AUSGESETZT : Messages.KOPFGELD_ERHOEHT,
                 Placeholder.unparsed("wert", ersterEinsatz ? reward(items) : gesamt),
                 Placeholder.unparsed("name", targetName));
+        // Sofort und im selben Tick: der Knopfdruck braucht eine Antwort. Die Ankuendigung
+        // an alle kommt erst, wenn das Gesicht da ist - dazwischen laege sonst Stille, und
+        // genau die liest sich als "es ist nichts passiert".
+        this.plugin.effects().bountyPlaced(placer, targetName, ersterEinsatz ? reward(items) : gesamt);
 
         Player gejagter = this.plugin.getServer().getPlayer(target);
         if (gejagter != null) {
@@ -169,9 +173,15 @@ public final class BountyService {
                     Placeholder.unparsed("wert", gesamt));
             this.plugin.effects().hunted(gejagter);
         }
-        if (this.plugin.settings().bountyBroadcast()) {
-            this.plugin.getServer().broadcast(Messages.mm(Messages.PREFIX + Messages.KOPFGELD_BROADCAST,
+        // Beim Erhoehen eine eigene Zeile: der erste Entwurf schrieb dem, der einen einzelnen
+        // Diamanten nachlegte, den ganzen Topf zu. Beim ersten Einsatz uebernimmt das
+        // Chat-Plakat der Ankuendigung die Rolle des Broadcasts - zwei fast gleiche Zeilen
+        // hintereinander liessen die Funktion unfertig wirken.
+        if (this.plugin.settings().bountyBroadcast() && !ersterEinsatz) {
+            this.plugin.getServer().broadcast(Messages.mm(
+                    Messages.PREFIX + Messages.KOPFGELD_BROADCAST_ERHOEHT,
                     Placeholder.unparsed("von", placer.getName()),
+                    Placeholder.unparsed("dazu", reward(items)),
                     Placeholder.unparsed("wert", gesamt),
                     Placeholder.unparsed("name", targetName)));
         }
@@ -190,7 +200,10 @@ public final class BountyService {
      */
     private void announce(UUID target, String targetName, String placer, Bounty topf) {
         this.faces.of(target, targetName)
-                .completeOnTimeout(SkinFace.defaultFor(target), 2, java.util.concurrent.TimeUnit.SECONDS)
+                // Kurze Frist: liegt das Gesicht nicht vor, ist ein Ersatzgesicht besser als
+                // eine Ankuendigung, die dem Knopfdruck zwei Sekunden hinterherlaeuft.
+                .completeOnTimeout(SkinFace.defaultFor(target), 700,
+                        java.util.concurrent.TimeUnit.MILLISECONDS)
                 .thenAccept(gesicht -> this.plugin.getServer().getScheduler().runTask(this.plugin,
                         () -> this.show.announce(gesicht, target, targetName, placer, topf)));
     }
@@ -313,6 +326,25 @@ public final class BountyService {
 
     // ---------------------------------------------------------------- Anzeige
 
+    /**
+     * Begruesst einen Spieler, auf dem ein Kopfgeld liegt.
+     *
+     * <p>Ohne das haette er beim Einloggen ploetzlich einen roten Balken am Bildrand und
+     * wuesste weder warum noch von wem.
+     */
+    public void greet(Player player) {
+        Bounty topf = this.data.pot(player.getUniqueId());
+        if (topf == null || topf.isEmpty()) {
+            return;
+        }
+        String von = topf.stakes().get(topf.stakes().size() - 1).name();
+        this.plugin.send(player, Messages.KOPFGELD_BEGRUESSUNG,
+                Placeholder.unparsed("wert", reward(topf)),
+                Placeholder.unparsed("von", von),
+                Placeholder.unparsed("anzahl", String.valueOf(topf.stakes().size())));
+        this.plugin.effects().hunted(player);
+    }
+
     /** Setzt TAB-Name und Balken eines Spielers auf den aktuellen Stand. */
     public void refresh(Player player) {
         Bounty topf = this.data.pot(player.getUniqueId());
@@ -367,8 +399,15 @@ public final class BountyService {
         this.faces.forget(player.getUniqueId());
     }
 
-    /** Beim Herunterfahren: jeden TAB-Namen und Balken zuruecksetzen. */
-    public void shutdown() {
+    /**
+     * Setzt jeden TAB-Namen und Balken zurueck, laesst den Dienst aber arbeitsfaehig.
+     *
+     * <p>Getrennt von {@link #shutdown()}, weil ein Neuladen genau das braucht und nicht mehr:
+     * wurde dabei auch der Thread-Pool fuer die Gesichter beendet, warf der naechste Versuch,
+     * ein Kopfgeld auszusetzen, eine RejectedExecutionException - und zwar erst, nachdem der
+     * Einsatz bereits gebucht war.
+     */
+    public void resetDisplay() {
         for (Player player : this.plugin.getServer().getOnlinePlayers()) {
             BossBar balken = this.bars.get(player.getUniqueId());
             if (balken != null) {
@@ -380,6 +419,11 @@ public final class BountyService {
         }
         this.bars.clear();
         this.previousListName.clear();
+    }
+
+    /** Beim Herunterfahren: Anzeige zuruecksetzen und die Hintergrundarbeit beenden. */
+    public void shutdown() {
+        resetDisplay();
         this.faces.shutdown();
     }
 

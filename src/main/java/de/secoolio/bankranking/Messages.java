@@ -392,6 +392,14 @@ public final class Messages {
     public static final String KOPFGELD_BROADCAST =
             "<dark_red>\u2620</dark_red> <white><von></white> setzt <gold><wert></gold> "
                     + "auf den Kopf von <red><bold><name></bold></red>!";
+    /** <von>, <dazu> = was dazukam, <wert> = der ganze Topf, <name>. */
+    public static final String KOPFGELD_BROADCAST_ERHOEHT =
+            "<dark_red>☠</dark_red> <white><von></white> legt <gold><dazu></gold> auf "
+                    + "<red><name></red> nach <dark_gray>(jetzt <gold><wert></gold>)";
+    /** <wert>, <von> = wer zuletzt eingezahlt hat, <anzahl> = Zahl der Einsaetze. */
+    public static final String KOPFGELD_BEGRUESSUNG =
+            "<red>Auf deinen Kopf sind <gold><wert></gold> ausgesetzt <dark_gray>(<anzahl> "
+                    + "Einsätze, zuletzt von <white><von></white>)</dark_gray>. Pass auf dich auf.";
     public static final String KOPFGELD_SELBST =
             "<yellow>Auf dich selbst kannst du kein Kopfgeld aussetzen.";
     /** <mindest>. */
@@ -469,6 +477,9 @@ public final class Messages {
     // ----- Kopfgeld: Bildschirm -----
 
     public static final String KOPFGELD_TITEL_TEXT = "<dark_red><bold>GESUCHT</bold></dark_red>";
+    /** Die Bestaetigung fuer den, der ausgesetzt hat. <name>, <wert>. */
+    public static final String KOPFGELD_AKTIONSLEISTE =
+            "<dark_red>☠</dark_red> <gold><wert></gold> <gray>auf <white><name></white>";
     /** <name>, <wert>. */
     public static final String KOPFGELD_UNTERTITEL_TEXT =
             "<gold><name></gold> <dark_gray>\u2014</dark_gray> <yellow><wert></yellow>";

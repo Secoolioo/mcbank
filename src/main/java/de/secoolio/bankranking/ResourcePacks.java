@@ -131,22 +131,72 @@ public final class ResourcePacks implements Listener {
      * kaeme kein einziger Mitspieler an das Pack. Deshalb werden die Netzwerkkarten selbst
      * durchgesehen und die erste Adresse im privaten Bereich genommen.
      */
+    /**
+     * Namensanfaenge von Schnittstellen, die kein Mitspieler je erreicht.
+     *
+     * <p>{@code NetworkInterface#isVirtual()} hilft hier nicht: das meldet nur Unter-
+     * schnittstellen wie {@code eth0:1}. Eine Docker-Bruecke ist danach eine ganz normale
+     * Karte - und ihre Adresse (etwa 172.17.0.1) landete als Pack-Adresse im Log, wo sie
+     * plausibel aussieht und fuer niemanden erreichbar ist.
+     */
+    private static final List<String> KUENSTLICH = List.of(
+            "docker", "br-", "veth", "virbr", "vmnet", "vboxnet", "tun", "tap", "wg", "zt",
+            "lo", "cni", "flannel", "kube", "tailscale");
+
+    /**
+     * Die Adresse, unter der die Mitspieler diesen Server erreichen.
+     *
+     * <p>Zuerst wird die Betriebssystem-Wegetabelle befragt: eine UDP-Verbindung nach aussen
+     * schickt nichts, legt aber die lokale Adresse fest, ueber die der Rechner nach draussen
+     * spricht. Das ist die einzige Auskunft, die auch bei mehreren Netzwerkkarten stimmt.
+     * Erst wenn das scheitert, werden die Karten selbst durchgesehen.
+     */
     static String localAddress() {
+        try (java.net.DatagramSocket sonde = new java.net.DatagramSocket()) {
+            sonde.connect(InetAddress.getByName("1.1.1.1"), 9);
+            InetAddress lokal = sonde.getLocalAddress();
+            if (lokal instanceof Inet4Address && !lokal.isAnyLocalAddress()
+                    && !lokal.isLoopbackAddress()) {
+                return lokal.getHostAddress();
+            }
+        } catch (Exception e) {
+            // Kein Weg nach draussen: dann eben ueber die Karten.
+        }
+
+        String oeffentlich = null;
         try {
             for (NetworkInterface karte : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (!karte.isUp() || karte.isLoopback() || karte.isVirtual()) {
+                if (!karte.isUp() || karte.isLoopback() || istKuenstlich(karte.getName())) {
                     continue;
                 }
                 for (InetAddress adresse : Collections.list(karte.getInetAddresses())) {
-                    if (adresse instanceof Inet4Address && adresse.isSiteLocalAddress()) {
+                    if (!(adresse instanceof Inet4Address) || adresse.isLoopbackAddress()) {
+                        continue;
+                    }
+                    if (adresse.isSiteLocalAddress()) {
                         return adresse.getHostAddress();
+                    }
+                    // Eine oeffentliche Adresse ist besser als gar keine: ein gemieteter
+                    // Server hat ueberhaupt keine private, und 127.0.0.1 erreicht niemand.
+                    if (oeffentlich == null) {
+                        oeffentlich = adresse.getHostAddress();
                     }
                 }
             }
         } catch (Exception e) {
-            // Faellt unten auf localhost zurueck.
+            // Faellt unten zurueck.
         }
-        return "127.0.0.1";
+        return oeffentlich != null ? oeffentlich : "127.0.0.1";
+    }
+
+    private static boolean istKuenstlich(String name) {
+        String klein = name.toLowerCase(java.util.Locale.ROOT);
+        for (String anfang : KUENSTLICH) {
+            if (klein.startsWith(anfang)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -171,6 +171,13 @@ public final class BankListener implements Listener {
     public void onJoin(PlayerJoinEvent event) {
         this.plugin.ranking().enable(event.getPlayer());
         this.plugin.bounties().refresh(event.getPlayer());
+        // Etwas verzoegert: direkt beim Beitritt ist der Bildschirm noch mit dem Laden
+        // beschaeftigt und die Meldung ginge unter.
+        this.plugin.getServer().getScheduler().runTaskLater(this.plugin, () -> {
+            if (event.getPlayer().isOnline()) {
+                this.plugin.bounties().greet(event.getPlayer());
+            }
+        }, 40L);
         if (this.plugin.packs() != null) {
             this.plugin.packs().send(event.getPlayer());
         }

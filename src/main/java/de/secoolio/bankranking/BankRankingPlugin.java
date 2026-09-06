@@ -165,7 +165,9 @@ public final class BankRankingPlugin extends JavaPlugin {
         // Erst alles zuruecksetzen, dann aus den frischen Daten neu setzen: sonst bliebe ein
         // Name rot, dessen Topf von Hand aus der Datei entfernt wurde.
         this.effects.cancelAll();
-        this.bounties.shutdown();
+        // Nur die Anzeige zuruecksetzen, nicht den Dienst beenden - sonst waere der
+        // Thread-Pool fuer die Gesichter nach einem Neuladen tot.
+        this.bounties.resetDisplay();
         this.lootBoxes.shutdown();
         for (Player player : getServer().getOnlinePlayers()) {
             this.bounties.refresh(player);

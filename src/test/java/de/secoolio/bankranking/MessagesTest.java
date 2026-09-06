@@ -37,7 +37,7 @@ class MessagesTest {
             "zeit", "datum", "items", "kopf", "hash", "adresse", "zustand", "wer", "grund",
             "menge", "faellig", "beste", "durchschnitt", "titel", "text",
             "ab", "schnitt", "roh", "status", "ziel", "basis", "seltenheit", "kategorie",
-            "stufen", "bonus", "stapel", "platzfarbe", "namensfarbe");
+            "stufen", "bonus", "stapel", "platzfarbe", "namensfarbe", "dazu");
 
     private static List<String> alleTexte() throws IllegalAccessException {
         List<String> texte = new ArrayList<>();

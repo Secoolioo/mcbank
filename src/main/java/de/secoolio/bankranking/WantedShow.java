@@ -89,18 +89,21 @@ final class WantedShow {
 
         for (Player zuschauer : this.plugin.getServer().getOnlinePlayers()) {
             chat.forEach(zuschauer::sendMessage);
-            if (!zeigen) {
-                continue;
+            if (zeigen) {
+                boolean mitPack = this.plugin.hasPack(zuschauer);
+                if (mitPack && plakat != null) {
+                    // Das Plakat traegt bereits Name und Belohnung; der Untertitel bliebe sonst
+                    // mitten im Gesicht stehen, weil Vanilla ihn fest auf halber Hoehe zeichnet.
+                    zuschauer.showTitle(Title.title(plakat, Component.empty(), TIMES));
+                } else {
+                    zuschauer.showTitle(Title.title(titelSpar, unterSpar, TIMES));
+                }
             }
-            boolean mitPack = this.plugin.hasPack(zuschauer);
-            if (mitPack && plakat != null) {
-                // Das Plakat traegt bereits Name und Betrag; der Untertitel bliebe sonst
-                // mitten im Gesicht stehen, weil Vanilla ihn fest auf halber Hoehe zeichnet.
-                zuschauer.showTitle(Title.title(plakat, Component.empty(), TIMES));
-            } else {
-                zuschauer.showTitle(Title.title(titelSpar, unterSpar, TIMES));
-            }
-            this.plugin.effects().cue(zuschauer, SoundCue.PLAKAT);
+            // Der Klang haengt ausdruecklich NICHT an der Plakat-Sperre. Im ersten Entwurf tat
+            // er das, und dadurch war jedes zweite Kopfgeld innerhalb der Sperrfrist voellig
+            // stumm - genau das Bild von "der Sound fehlt". Kommt das Plakat nicht, gibt es
+            // wenigstens den Nagel: kurz, leise, aber unueberhoerbar.
+            this.plugin.effects().cue(zuschauer, zeigen ? SoundCue.PLAKAT : SoundCue.NAGEL);
         }
         if (zeigen) {
             // Der Nagel faellt in die Einblendung: das Plakat bekommt damit einen Anschlag,

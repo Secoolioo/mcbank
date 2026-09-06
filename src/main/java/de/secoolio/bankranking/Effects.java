@@ -124,6 +124,31 @@ public final class Effects {
     }
 
     /**
+     * Die Bestaetigung fuer den, der gerade ein Kopfgeld ausgesetzt hat.
+     *
+     * <p>Im ersten Entwurf gab es die nicht: der Spieler drueckte den Haken, hoerte eine
+     * zuklappende Kiste und stand vor einem geschlossenen Fenster. Alles Weitere kam
+     * Sekundenbruchteile spaeter und wirkte, als haette es nichts damit zu tun.
+     */
+    public void bountyPlaced(org.bukkit.entity.Player placer, String targetName, String reward) {
+        cue(placer, SoundCue.HAHN);
+        later(4L, () -> {
+            if (placer.isOnline()) {
+                cue(placer, SoundCue.NAGEL);
+            }
+        });
+        placer.sendActionBar(Messages.mm(Messages.KOPFGELD_AKTIONSLEISTE,
+                net.kyori.adventure.text.minimessage.tag.resolver.Placeholder
+                        .unparsed("name", targetName),
+                net.kyori.adventure.text.minimessage.tag.resolver.Placeholder
+                        .unparsed("wert", reward)));
+        if (this.plugin.settings().effectParticles()) {
+            Location at = placer.getLocation().add(0.0, 1.0, 0.0);
+            placer.getWorld().spawnParticle(Particle.ENCHANT, at, 24, 0.4, 0.5, 0.4);
+        }
+    }
+
+    /**
      * Der Gejagte ist gefallen.
      *
      * <p>Der Schuss und sein Echo erreichen niemals denselben Spieler: wer nah dran ist, hoert

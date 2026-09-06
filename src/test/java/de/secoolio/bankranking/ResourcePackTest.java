@@ -31,6 +31,19 @@ class ResourcePackTest {
         return ResourcePackFile.build(ordner, new TestSupport.RecordingLogger());
     }
 
+    /** Eine Datei, die wie eine Ogg-Datei beginnt - mehr prueft das Plugin nicht. */
+    private static byte[] ogg(int... rest) {
+        byte[] daten = new byte[4 + rest.length];
+        daten[0] = 'O';
+        daten[1] = 'g';
+        daten[2] = 'g';
+        daten[3] = 'S';
+        for (int i = 0; i < rest.length; i++) {
+            daten[4 + i] = (byte) rest[i];
+        }
+        return daten;
+    }
+
     private static HttpResponse<byte[]> hole(String url) throws Exception {
         return CLIENT.send(HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(5)).build(), HttpResponse.BodyHandlers.ofByteArray());
@@ -53,7 +66,7 @@ class ResourcePackTest {
         assertEquals(build(ordner).sha1(), build(ordner).sha1());
 
         Path klaenge = Files.createDirectories(ordner.resolve("pack-eigene/sounds"));
-        Files.write(klaenge.resolve("plakat.ogg"), new byte[]{1, 2, 3, 4, 5});
+        Files.write(klaenge.resolve("plakat.ogg"), ogg(1, 2, 3, 4, 5));
         ResourcePackFile ersteFassung = build(ordner);
         ResourcePackFile zweiteFassung = build(ordner);
         assertEquals(ersteFassung.sha1(), zweiteFassung.sha1(),
@@ -67,7 +80,7 @@ class ResourcePackTest {
         String vorher = build(ordner).sha1();
 
         Path klaenge = Files.createDirectories(ordner.resolve("pack-eigene/sounds"));
-        Files.write(klaenge.resolve("plakat.ogg"), new byte[]{9, 9, 9});
+        Files.write(klaenge.resolve("plakat.ogg"), ogg(9, 9, 9));
         ResourcePackFile nachher = build(ordner);
 
         assertNotEquals(vorher, nachher.sha1(), "geaenderter Inhalt braucht einen neuen Hash");
@@ -85,6 +98,24 @@ class ResourcePackTest {
         assertTrue(pack.replaced().isEmpty());
         assertEquals(1, log.warnings().size());
         assertTrue(log.warnings().get(0).contains("plakat.mp3"), log.warnings().get(0));
+    }
+
+    @Test
+    @DisplayName("Eine Datei, die nur .ogg heisst, wird abgelehnt statt still den Klang zu toeten")
+    void fakeOggRejected(@TempDir Path ordner) throws IOException {
+        // Eine falsche Datei im Pack macht den Klang bei allen Spielern mit Pack lautlos -
+        // und zwar ohne jede Fehlermeldung. Deshalb wird hineingesehen, nicht nur der Name
+        // geprueft.
+        Path klaenge = Files.createDirectories(ordner.resolve("pack-eigene/sounds"));
+        Files.write(klaenge.resolve("plakat.ogg"), new byte[]{1, 2, 3, 4, 5});
+        TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
+        ResourcePackFile pack = ResourcePackFile.build(ordner, log);
+
+        assertTrue(pack.replaced().isEmpty(), "die kaputte Datei darf nichts ersetzen");
+        assertTrue(log.warnings().stream().anyMatch(w -> w.contains("Ogg")),
+                log.warnings().toString());
+        assertTrue(log.warnings().stream().anyMatch(w -> w.contains("ffmpeg")),
+                "die Warnung soll auch sagen, wie man es repariert");
     }
 
     @Test

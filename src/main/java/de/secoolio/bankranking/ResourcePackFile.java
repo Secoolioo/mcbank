@@ -106,10 +106,27 @@ final class ResourcePackFile {
                             + " ist keine .ogg-Datei und wird nicht uebernommen");
                     continue;
                 }
-                gefunden.put(SOUND_TARGET + name, Files.readAllBytes(datei));
+                byte[] inhalt = Files.readAllBytes(datei);
+                if (!istOgg(inhalt)) {
+                    // Eine Datei, die nur .ogg heisst, macht den Klang bei allen Spielern mit
+                    // Pack lautlos - und zwar ohne jede Fehlermeldung. Deshalb wird hier
+                    // hineingesehen, statt dem Namen zu glauben.
+                    log.warning("pack-eigene/sounds/" + name + " ist keine Ogg-Datei (die ersten "
+                            + "vier Bytes muessten OggS lauten) und wird nicht uebernommen. "
+                            + "Umwandeln zum Beispiel mit: ffmpeg -i deine-datei -c:a libvorbis "
+                            + "-ar 44100 " + name);
+                    continue;
+                }
+                gefunden.put(SOUND_TARGET + name, inhalt);
             }
         }
         return gefunden;
+    }
+
+    /** Ogg-Dateien beginnen immer mit der Kennung OggS. */
+    private static boolean istOgg(byte[] inhalt) {
+        return inhalt.length > 4 && inhalt[0] == 'O' && inhalt[1] == 'g'
+                && inhalt[2] == 'g' && inhalt[3] == 'S';
     }
 
     /** Packt das Grundpack mit den eigenen Dateien neu - sortiert und mit festen Zeitstempeln. */
