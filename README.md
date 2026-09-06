@@ -6,30 +6,23 @@ Punkte bekommen, plus eine Rangliste am rechten Bildschirmrand.
 ## Was es kann
 
 - **Bank-NPCs**: beliebig viele Figuren mit echtem Spieler-Skin (Mannequin), jede mit eigener Nummer.
-  Rechtsklick öffnet ein Fenster mit Rahmen, 28 Ablageplätzen, mitlaufender Wertanzeige und
-  Haken-Knopf zum Abgeben.
-- **Items abgeben**: alles hineinlegen, jederzeit wieder herausnehmen. Erst der Haken-Knopf unten
-  in der Mitte verrechnet den Inhalt. Fenster schließen ohne Klick = alles zurück.
-- **Shulker-Boxen und Bündel** werden geleert: der Inhalt zählt, die leere Box kommt zurück.
-- **Rangliste** rechts im Bild: Top 3, eigener Platz, Rang, eigene Tode, aktueller Minecraft-Tag.
-- **Punkte** nach einer frei konfigurierbaren Formel, siehe unten.
-
-## Befehle
-
-| Befehl | Recht | Wirkung |
-| --- | --- | --- |
-| `/spawnrank [Spieler]` | `bankranking.admin` | Setzt einen Bank-NPC an deine Position. Ohne Angabe bekommt er deinen Skin, sonst den des genannten Spielers. |
-| `/kontostand` | `bankranking.kontostand` | Eigener Punktestand und Platz. |
-| `/reichste` | `bankranking.reichste` | Die zehn reichsten Spieler. |
-| `/bankranking` | `bankranking.admin` | Hilfe. |
-| `/bankranking list` | `bankranking.admin` | Alle NPCs mit Nummer, Position, Skin und Status. |
-| `/bankranking removenpc <nr>` | `bankranking.admin` | Entfernt einen NPC. |
-| `/bankranking skin <nr> <Spieler>` | `bankranking.admin` | Ändert den Skin eines NPCs. |
-| `/bankranking reload` | `bankranking.admin` | Lädt `config.yml` und `players.yml` neu. |
-| `/bankranking wert` | `bankranking.admin` | Zeigt die komplette Rechnung für das Item in der Hand. |
-| `/bankranking sidebar` | `bankranking.admin` | Prüft die Rangliste und baut sie neu auf. |
-
-Das Recht `bankranking.use` (standardmäßig für alle) erlaubt das Benutzen der NPCs.
+  Ein Rechtsklick öffnet das Hauptmenü.
+- **Hauptmenü** mit drei Wegen: Abgeben, Rangliste und Mein Konto. Der Rahmen jedes Fensters trägt
+  die Farbe deines Rangs.
+- **Abgeben**: Items in 28 Plätze legen, jederzeit wieder herausnehmen. Erst der Haken-Knopf unten
+  in der Mitte verrechnet den Inhalt. Fenster schließen ohne Klick = alles zurück. Eine Anzeige
+  rechnet laufend mit, was die Einzahlung bringen würde.
+- **Shulker-Boxen und Bündel** werden geleert: der Inhalt zählt, die leere Hülle kommt zurück.
+- **Rangliste als Fenster**: Treppchen für die ersten drei, Plätze vier bis zehn darunter, ganz
+  unten dein eigener Stand mit dem Abstand nach oben und unten.
+- **Kontoseite**: Rang und Fortschritt, Anzahl und Umfang deiner Einzahlungen, die größte
+  Einzahlung, dein Lieblingsmaterial und die letzten fünf Abgaben.
+- **Ränge** von Bronze bis Netherite. Ein Aufstieg wird allen Spielern im Chat gemeldet.
+- **Effekte**: Partikel und ein Text in der Bildmitte beim Abgeben; ein Balken am oberen Bildrand
+  zeigt den Weg zum nächsten Rang, solange ein Bank-Fenster offen ist.
+- **Rangliste am Bildschirmrand**: die ersten drei in Gold, Silber und Bronze, jeder Name in der
+  Farbe seines Rangs, dazu dein Platz, der Abstand zum Vordermann, dein Fortschritt, deine Tode
+  und der Minecraft-Tag.
 
 ## Punkte-Formel
 
@@ -94,7 +87,7 @@ Es genügt eine Java-Laufzeit; Gradle lädt sich das nötige JDK 25 selbst nach 
 ./gradlew build
 ```
 
-Ergebnis: `build/libs/BankRanking-1.2.0.jar`.
+Ergebnis: `build/libs/BankRanking-2.0.0.jar`.
 
 ## Herunterladen
 
@@ -104,7 +97,7 @@ und im Ordner `dist/`.
 Direkt auf dem Server, im Ordner `plugins/`:
 
 ```bash
-wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-1.2.0.jar
+wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-2.0.0.jar
 ```
 
 Oder das ganze Projekt holen:

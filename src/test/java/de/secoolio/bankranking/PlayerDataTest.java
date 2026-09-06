@@ -220,6 +220,74 @@ class PlayerDataTest {
         assertTrue(readFile(dir).contains("12.5"), "der ursprüngliche Wert steht weiterhin in der Datei");
     }
 
+    @Test
+    @DisplayName("Die Kennzahlen überstehen Speichern und Laden")
+    void statisticsRoundTrip(@TempDir Path dir) {
+        PlayerData data = data(dir);
+        data.load();
+        PlayerStats.Deposit first = new PlayerStats.Deposit(1_700_000_000_000L, 40.0, 64, Material.IRON_INGOT);
+        PlayerStats.Deposit second = new PlayerStats.Deposit(1_700_000_100_000L, 90.0, 12, Material.DIAMOND);
+        data.add(STEVE, "Steve", 40.0, Map.of(), first, Map.of(Material.IRON_INGOT, 64));
+        data.add(STEVE, "Steve", 90.0, Map.of(), second, Map.of(Material.DIAMOND, 12));
+
+        PlayerData reloaded = data(dir);
+        reloaded.load();
+        PlayerStats stats = reloaded.stats(STEVE);
+        assertEquals(2, stats.deposits());
+        assertEquals(76L, stats.items());
+        assertEquals(90.0, stats.biggest().points(), 1e-9);
+        assertEquals(Material.DIAMOND, stats.biggest().top());
+        assertEquals(Material.IRON_INGOT, stats.favourite().orElseThrow().getKey());
+        assertEquals(2, stats.recent().size());
+        assertEquals(90.0, stats.recent().get(0).points(), 1e-9);
+    }
+
+    @Test
+    @DisplayName("Ein unbrauchbares Statistik-Feld kostet nicht den ganzen Spieler")
+    void brokenStatisticFieldKeepsThePlayer(@TempDir Path dir) throws IOException {
+        Files.writeString(fileIn(dir).toPath(), """
+                spieler:
+                  %s:
+                    name: Steve
+                    punkte: 100.0
+                    statistik:
+                      einzahlungen: "keine Zahl"
+                      items: 50
+                      materialien:
+                        gibtsnicht: 10
+                        iron_ingot: 20
+                """.formatted(STEVE));
+        PlayerData data = data(dir);
+        data.load();
+        assertEquals(100.0, data.get(STEVE), 1e-9);
+        PlayerStats stats = data.stats(STEVE);
+        assertEquals(0, stats.deposits(), "das unbrauchbare Feld fällt auf seinen Standard zurück");
+        assertEquals(50L, stats.items(), "die gültigen Felder bleiben erhalten");
+        assertEquals(Material.IRON_INGOT, stats.favourite().orElseThrow().getKey());
+    }
+
+    @Test
+    @DisplayName("Nach einem gescheiterten Speichern bleibt auch der bewahrte Block erhalten")
+    void rollbackKeepsPreservedBlock(@TempDir Path dir) throws IOException {
+        Files.writeString(fileIn(dir).toPath(), """
+                spieler:
+                  %s:
+                    name: Steve
+                    punkte: -3.0
+                """.formatted(STEVE));
+        PlayerData data = data(dir);
+        data.load();
+
+        // Ein Verzeichnis an der Stelle der temporären Datei lässt jedes Speichern scheitern.
+        Files.createDirectory(dir.resolve("players.yml.tmp"));
+        assertFalse(data.add(STEVE, "Steve", 40.0, Map.of()).saved());
+
+        // Nach dem Aufräumen muss der bewahrte Block noch da sein.
+        Files.delete(dir.resolve("players.yml.tmp"));
+        assertTrue(data.add(ALEX, "Alex", 5.0, Map.of()).saved());
+        assertTrue(readFile(dir).contains("-3.0"), "der ursprüngliche Block überlebt den Fehlschlag");
+    }
+
     private static File fileIn(Path dir) {
         return new File(dir.toFile(), "players.yml");
     }

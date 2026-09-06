@@ -272,7 +272,7 @@ public final class PlayerData {
         boolean wasDirty = this.dirty;
 
         // Der Spieler hat wieder ein gueltiges Konto - der alte, unlesbare Block wird nicht mehr gebraucht.
-        this.unreadable.remove(id.toString());
+        Object droppedBlock = this.unreadable.remove(id.toString());
         double total = Scorer.round1((previous == null ? 0.0 : previous.points()) + delta);
         PlayerStats stats = previous == null ? PlayerStats.EMPTY : previous.stats();
         if (deposit != null) {
@@ -297,6 +297,9 @@ public final class PlayerData {
             this.saturations.remove(id);
         } else {
             this.saturations.put(id, savedSaturation);
+        }
+        if (droppedBlock != null) {
+            this.unreadable.put(id.toString(), droppedBlock);
         }
         this.dirty = wasDirty;
         return new AddResult(false, previous == null ? 0.0 : previous.points());

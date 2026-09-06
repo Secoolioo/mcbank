@@ -70,13 +70,15 @@ public final class BankRankingPlugin extends JavaPlugin {
     public void onDisable() {
         // Beim Herunterfahren erreicht das Schliessen-Ereignis das Plugin nicht mehr von allein,
         // und ein Scheduler ist hier nicht mehr benutzbar: also synchron zurueckgeben und schliessen.
-        if (this.playerData != null) {
-            for (Player player : new ArrayList<>(getServer().getOnlinePlayers())) {
-                if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof BankGui gui) {
-                    gui.refund(player, false);
-                    player.closeInventory(InventoryCloseEvent.Reason.PLUGIN);
-                }
+        // Jedes Fenster schliessen, nicht nur das Abgabe-Fenster: ein offen gebliebenes Anzeigefenster
+        // waere nach dem Abschalten des Ereignis-Empfaengers eine ganz normale Kiste voller Deko.
+        for (Player player : new ArrayList<>(getServer().getOnlinePlayers())) {
+            if (player.getOpenInventory().getTopInventory().getHolder(false) instanceof BankWindow window) {
+                window.onClosed(player, false);
+                player.closeInventory(InventoryCloseEvent.Reason.PLUGIN);
             }
+        }
+        if (this.playerData != null) {
             this.playerData.saveIfDirty();
         }
         if (this.progressBar != null) {

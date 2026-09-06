@@ -29,7 +29,9 @@ public final class BankWindows {
     /** Oeffnet im naechsten Tick - der Weg aus einem Klick heraus. */
     public void openLater(Player player, BankWindow window) {
         this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
-            if (player.isOnline()) {
+            // Nur wenn der Spieler noch lebt und weiterhin in einem Bank-Fenster steht: sonst haette
+            // ein Druck auf Escape oder ein Tod im selben Tick ein Fenster erzwungen.
+            if (player.isOnline() && !player.isDead() && isOurs(player)) {
                 player.openInventory(window.getInventory());
                 player.playSound(player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN,
                         SoundCategory.MASTER, 0.7f, 1.0f);
@@ -41,7 +43,7 @@ public final class BankWindows {
     /** Schliesst im naechsten Tick. */
     public void closeLater(Player player) {
         this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
-            if (player.isOnline()) {
+            if (player.isOnline() && isOurs(player)) {
                 player.playSound(player.getLocation(), Sound.BLOCK_BARREL_CLOSE,
                         SoundCategory.MASTER, 0.6f, 1.2f);
                 player.closeInventory(InventoryCloseEvent.Reason.PLUGIN);

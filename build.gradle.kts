@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "de.secoolio"
-version = "1.2.0"
+version = "2.0.0"
 description = "Item-Bank mit Punkte-Rangliste (NPCs mit Spieler-Skin, Sidebar, /reichste, /kontostand)"
 
 repositories {

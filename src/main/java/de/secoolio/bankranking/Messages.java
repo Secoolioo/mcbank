@@ -273,8 +273,9 @@ public final class Messages {
                     + " * <white><seltenheit></white> + <white><bonus></white>"
                     + " = <gold><bold><punkte></bold></gold> Punkte";
 
+    /** <platzfarbe> und <namensfarbe> werden vor dem Auswerten eingesetzt. */
     public static final String SIDEBAR_ZEILE_TOP =
-            "<yellow><platz>.</yellow> <white><name></white> <gold><punkte></gold>";
+            "<platzfarbe><platz>. <namensfarbe><name> <white><punkte>";
     public static final String SIDEBAR_ZEILE_ICH = "<aqua>Du:</aqua> Platz <white><platz></white> <gold><punkte></gold>";
     public static final String SIDEBAR_ZEILE_ICH_LEER = "<aqua>Du:</aqua> <gray>noch keine Punkte";
     /** <platzfarbe>, <namensfarbe>, <platz>, <name>, <punkte>. */

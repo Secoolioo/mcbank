@@ -58,6 +58,19 @@ class RankProgressTest {
     }
 
     @Test
+    @DisplayName("Der Balken ist erst voll, wenn der Rang wirklich erreicht ist")
+    void barMatchesPercent() {
+        RankProgress almost = RankProgress.of(999.0);
+        String bar = almost.bar(10, "|");
+        String filled = bar.substring(RankProgress.FILLED_COLOR.length(), bar.indexOf(RankProgress.EMPTY_COLOR));
+        assertEquals(9, filled.length(), "99 Prozent dürfen keinen vollen Balken zeigen");
+        assertEquals(99, almost.percent());
+
+        RankProgress reached = RankProgress.of(1000.0);
+        assertEquals(0, reached.percent());
+    }
+
+    @Test
     @DisplayName("Ein negativer Punktestand ergibt den untersten Rang ohne Fortschritt")
     void negativePointsAreHarmless() {
         RankProgress progress = RankProgress.of(-50.0);

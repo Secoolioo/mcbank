@@ -201,6 +201,8 @@ public final class BankGui implements BankWindow {
         if (stacks.isEmpty()) {
             this.inventory.setItem(VALUE_SLOT, GuiItems.labelled(Material.LIGHT_GRAY_STAINED_GLASS_PANE,
                     Messages.WERT_ANZEIGE_LEER_NAME, List.of(Messages.WERT_ANZEIGE_LEER_LORE)));
+            // Ohne Inhalt zeigt der Balken wieder den reinen Kontostand.
+            this.plugin.progressBar().update(player, 0.0);
         } else {
             Scorer.Deposit preview = preview(player, stacks);
             List<String> lore = new ArrayList<>();

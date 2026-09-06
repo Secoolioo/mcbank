@@ -58,7 +58,8 @@ public record RankProgress(Rank rank, Rank next, double have, double need, doubl
      */
     public String bar(int width, String symbol) {
         int safeWidth = Math.max(1, Math.min(64, width));
-        int filled = (int) Math.round(this.fraction * safeWidth);
+        // Abgerundet wie percent(): ein voller Balken steht nur bei wirklich erreichtem Rang.
+        int filled = (int) Math.floor(this.fraction * safeWidth);
         StringBuilder sb = new StringBuilder(FILLED_COLOR);
         sb.append(symbol.repeat(filled));
         sb.append(EMPTY_COLOR);

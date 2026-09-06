@@ -68,6 +68,11 @@ public final class RankProgressBar {
      * Beim Wechsel zwischen zwei Fenstern bleibt er dadurch stehen.
      */
     public void hideLater(Player player) {
+        if (!this.plugin.isEnabled()) {
+            // Beim Herunterfahren ist der Zeitplaner gesperrt - dann sofort ausblenden.
+            hide(player);
+            return;
+        }
         this.plugin.getServer().getScheduler().runTask(this.plugin, () -> {
             if (!player.isOnline() || !BankWindows.isOurs(player)) {
                 hide(player);
