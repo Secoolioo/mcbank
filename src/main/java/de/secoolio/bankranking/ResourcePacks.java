@@ -17,7 +17,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import io.papermc.paper.connection.PlayerConfigurationConnection;
+import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent;
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.resource.ResourcePackInfo;
+import net.kyori.adventure.resource.ResourcePackStatus;
 import net.kyori.adventure.resource.ResourcePackRequest;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -63,10 +67,26 @@ public final class ResourcePacks implements Listener {
     private final BankRankingPlugin plugin;
     private final ResourcePackFile file;
     private final ResourcePackServer server;
-    private final String url;
+    /**
+     * Ab wie vielen verschiedenen Spielern mit gescheitertem Download der eingebaute Webserver
+     * als unerreichbar gilt.
+     *
+     * <p>Ein einzelner Fehlschlag kann an einem Spieler liegen - zwei verschiedene nicht mehr.
+     * Das ist die einzige Pruefung, die der Server ueberhaupt anstellen kann: seinen eigenen
+     * Port von aussen zu testen ist ihm unmoeglich, denn sein Selbsttest laeuft nur gegen sich
+     * selbst und gelingt auch dann, wenn die Firewall alle anderen aussperrt.
+     */
+    private static final int UMSCHALTEN_AB = 2;
+
+    /** Nicht final: bei dauerhafter Unerreichbarkeit wird auf die Ablage umgestellt. */
+    private volatile String url;
     private final Set<UUID> loaded = Collections.synchronizedSet(new HashSet<>());
     /** Wem schon einmal ueber den Ausweichweg nachgereicht wurde - genau einmal je Spieler. */
     private final Set<UUID> retried = Collections.synchronizedSet(new HashSet<>());
+    /** Wer das Pack bereits in der Konfigurationsphase bekommen hat. */
+    private final Set<UUID> configured = Collections.synchronizedSet(new HashSet<>());
+    /** Bei wem der Download gescheitert ist - zaehlt je Spieler nur einmal. */
+    private final Set<UUID> failed = Collections.synchronizedSet(new HashSet<>());
 
     private ResourcePacks(BankRankingPlugin plugin, ResourcePackFile file,
                           ResourcePackServer server, String url) {
@@ -102,7 +122,21 @@ public final class ResourcePacks implements Listener {
                 return new ResourcePacks(plugin, datei, null, adresse);
             }
 
-            ResourcePackServer server = ResourcePackServer.start("", settings.packPort(), datei);
+            ResourcePackServer server;
+            try {
+                server = ResourcePackServer.start("", settings.packPort(), datei);
+            } catch (IOException e) {
+                // Der haeufigste Grund ist ein belegter Port - etwa weil beim Neustart der alte
+                // Serverprozess ihn noch haelt. Frueher schaltete das Plugin daraufhin das ganze
+                // Pack ab, und zwar still: die Spieler bekamen ohne jede Meldung die Sparfassung,
+                // also weder Plakatgrafik noch eigene Klaenge. Ein unerreichbarer eigener Port ist
+                // aber kein Grund, auf das Pack zu verzichten - es liegt ja auch veroeffentlicht.
+                plugin.getLogger().warning("Der eingebaute Webserver konnte nicht auf Port "
+                        + settings.packPort() + " starten (" + e.getMessage() + "). Das Pack wird "
+                        + "stattdessen ueber " + FALLBACK_URL + " ausgeliefert. Ein anderer Wert "
+                        + "unter resourcepack.port bringt den eigenen Webserver zurueck.");
+                return new ResourcePacks(plugin, datei, null, FALLBACK_URL);
+            }
             String host = adresse.isEmpty() ? localAddress() : adresse;
             if ("127.0.0.1".equals(host) && adresse.isEmpty()) {
                 // Ein stiller Rueckfall auf Loopback waere das Schlimmste: im Log staende eine
@@ -237,13 +271,58 @@ public final class ResourcePacks implements Listener {
         }
     }
 
-    /** Schickt die Anfrage an einen Spieler. */
+    /**
+     * Schickt das Pack, sobald sich jemand verbindet - noch waehrend der Konfigurationsphase.
+     *
+     * <p>Das ist der entscheidende Unterschied zum ersten Entwurf, der es erst beim Beitritt
+     * schickte. Ein Pack, das waehrend des Spiels ankommt, zwingt den Client zu einem
+     * vollstaendigen Neuaufbau saemtlicher Ressourcen - alle Texturatlanten, alle Modelle.
+     * Auf einem stark modifizierten Client dauert das so lange, dass der Render-Thread steht
+     * und die Lebenszeichen des Servers unbeantwortet bleiben; der Server wirft den Spieler
+     * daraufhin wegen Zeitueberschreitung hinaus, er verbindet neu, und das Ganze beginnt von
+     * vorn. Genau dieser Kreis war im Client-Protokoll eines Spielers zu sehen.
+     *
+     * <p>In der Konfigurationsphase ist der Spieler noch nicht in der Welt. Der Client laedt
+     * das Pack dort als Teil des ohnehin stattfindenden Ladevorgangs - kein zusaetzlicher
+     * Neuaufbau, kein Einfrieren.
+     */
+    @EventHandler
+    public void onConfigure(AsyncPlayerConnectionConfigureEvent event) {
+        PlayerConfigurationConnection verbindung = event.getConnection();
+        UUID id;
+        try {
+            id = verbindung.getProfile().getId();
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (id == null) {
+            return;
+        }
+        this.configured.add(id);
+        send(verbindung.getAudience(), this.url, id,
+                verbindung.getProfile().getName());
+    }
+
+    /**
+     * Schickt die Anfrage an einen Spieler, der schon in der Welt ist.
+     *
+     * <p>Nur als Rueckfall: wer das Pack bereits beim Verbinden bekommen hat, bekommt es hier
+     * nicht noch einmal - ein zweites Mal loeste genau den Neuaufbau aus, den die
+     * Konfigurationsphase gerade vermeidet.
+     */
     void send(Player player) {
+        if (this.configured.contains(player.getUniqueId())) {
+            return;
+        }
         send(player, this.url);
     }
 
     private void send(Player player, String adresse) {
-        player.sendResourcePacks(ResourcePackRequest.resourcePackRequest()
+        send(player, adresse, player.getUniqueId(), player.getName());
+    }
+
+    private void send(Audience empfaenger, String adresse, UUID id, String name) {
+        empfaenger.sendResourcePacks(ResourcePackRequest.resourcePackRequest()
                 .packs(ResourcePackInfo.resourcePackInfo(PACK_ID, URI.create(adresse),
                         this.file.sha1()))
                 // Kein Kick: der Zwang haengt ohnehin an require-resource-pack in den
@@ -253,7 +332,32 @@ public final class ResourcePacks implements Listener {
                 // dafuer, dass nur unser eigener Eintrag ersetzt wird.
                 .replace(false)
                 .prompt(Messages.mm(this.plugin.settings().packPrompt()))
+                // Der Rueckruf kommt auch in der Konfigurationsphase, in der es noch keinen
+                // Player und damit kein PlayerResourcePackStatusEvent gibt.
+                .callback((packId, status, audience) -> record(id, name, status, audience))
                 .build());
+    }
+
+    /**
+     * Haelt den Zustand fest - unabhaengig davon, aus welcher Phase er kommt.
+     *
+     * <p>In der Konfigurationsphase gibt es noch keinen Spieler und damit auch kein
+     * {@link PlayerResourcePackStatusEvent}. Nur dieser Rueckruf kommt in beiden Phasen an,
+     * deshalb haengt die Erkennung eines unerreichbaren Ports hier.
+     */
+    private void record(UUID id, String name, ResourcePackStatus status, Audience empfaenger) {
+        if (status == ResourcePackStatus.SUCCESSFULLY_LOADED) {
+            this.loaded.add(id);
+            return;
+        }
+        if (status.intermediate()) {
+            return;
+        }
+        this.loaded.remove(id);
+        if (status == ResourcePackStatus.FAILED_DOWNLOAD
+                || status == ResourcePackStatus.INVALID_URL) {
+            handleFailure(id, name, empfaenger);
+        }
     }
 
     /** Hat dieser Spieler unser Pack geladen? */
@@ -283,6 +387,9 @@ public final class ResourcePacks implements Listener {
             this.server.stop();
         }
         this.loaded.clear();
+        this.retried.clear();
+        this.configured.clear();
+        this.failed.clear();
     }
 
     /** Nur der Endzustand zaehlt - Zwischenstaende wuerden zu frueh umschalten. */
@@ -312,7 +419,7 @@ public final class ResourcePacks implements Listener {
         }
         this.loaded.remove(id);
         if (isReachabilityProblem(event.getStatus())) {
-            retryElsewhere(event.getPlayer());
+            handleFailure(id, event.getPlayer().getName(), event.getPlayer());
         }
     }
 
@@ -329,21 +436,35 @@ public final class ResourcePacks implements Listener {
      * sein Pack vom veroeffentlichten ab, und der Client wuerde es wegen des anderen Hashes
      * ohnehin verwerfen.
      */
-    private void retryElsewhere(Player player) {
-        if (this.url.equals(FALLBACK_URL) || !this.file.replaced().isEmpty()
-                || !this.retried.add(player.getUniqueId())) {
+    private void handleFailure(UUID id, String name, Audience empfaenger) {
+        if (!this.file.replaced().isEmpty() || FALLBACK_URL.equals(this.url)) {
+            // Eigene Dateien im Pack: das veroeffentlichte weicht ab, sein Hash passt nicht,
+            // und der Client wuerde es ohnehin verwerfen. Oder es laeuft laengst ueber die Ablage.
             return;
         }
-        this.plugin.getLogger().info(player.getName() + " konnte das Resourcepack unter "
-                + this.url + " nicht laden - es wird ueber " + FALLBACK_URL + " nachgereicht. "
-                + "Ist das dauerhaft so, ist vermutlich der Port in der Firewall zu.");
-        send(player, FALLBACK_URL);
+        boolean neu = this.failed.add(id);
+        if (neu && this.failed.size() >= UMSCHALTEN_AB) {
+            String bisher = this.url;
+            this.url = FALLBACK_URL;
+            this.plugin.getLogger().warning("Bei " + this.failed.size() + " verschiedenen "
+                    + "Spielern ist der Download unter " + bisher + " gescheitert. Der Port ist "
+                    + "also von aussen nicht erreichbar - fast immer die Firewall des Servers. "
+                    + "Alle weiteren Spieler bekommen das Pack ab sofort ueber " + FALLBACK_URL
+                    + ". Dauerhaft behebt es: firewall-cmd --permanent --add-port="
+                    + this.plugin.settings().packPort() + "/tcp && firewall-cmd --reload");
+        }
+        if (this.retried.add(id)) {
+            this.plugin.getLogger().info(name + " konnte das Resourcepack nicht laden - "
+                    + "es wird ueber " + FALLBACK_URL + " nachgereicht.");
+            send(empfaenger, FALLBACK_URL, id, name);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         this.loaded.remove(event.getPlayer().getUniqueId());
         this.retried.remove(event.getPlayer().getUniqueId());
+        this.configured.remove(event.getPlayer().getUniqueId());
     }
 
     /** Der Zustand je Spieler, fuer die Verwaltung. */
