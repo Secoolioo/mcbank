@@ -249,6 +249,19 @@ public final class RankingBoard {
         this.boards.clear();
     }
 
+    /** Die Zeile mit dem Abstand nach oben - oder dem Vorsprung, wenn jemand fuehrt. */
+    private Component gapLine(int rank, double ownPoints, List<Map.Entry<UUID, PlayerData.Entry>> snapshot) {
+        if (rank == 1) {
+            double lead = snapshot.size() > 1 ? ownPoints - snapshot.get(1).getValue().points() : ownPoints;
+            return Messages.mm(Messages.SIDEBAR_ZEILE_FUEHRT,
+                    Placeholder.unparsed("abstand", Scorer.format(lead)));
+        }
+        PlayerData.Entry ahead = snapshot.get(rank - 2).getValue();
+        return Messages.mm(Messages.SIDEBAR_ZEILE_VOR_DIR,
+                Placeholder.unparsed("name", shorten(ahead.name())),
+                Placeholder.unparsed("abstand", Scorer.format(ahead.points() - ownPoints)));
+    }
+
     private List<Component> buildLines(Player player, List<Map.Entry<UUID, PlayerData.Entry>> snapshot) {
         List<Component> lines = new ArrayList<>();
         List<Map.Entry<UUID, PlayerData.Entry>> top = snapshot.subList(0, Math.min(TOP_COUNT, snapshot.size()));
@@ -257,7 +270,11 @@ public final class RankingBoard {
         } else {
             int place = 1;
             for (Map.Entry<UUID, PlayerData.Entry> entry : top) {
-                lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_TOP,
+                // Die Platzziffer in Gold, Silber und Bronze, der Name in der Farbe seines Rangs.
+                String template = Messages.SIDEBAR_ZEILE_TOP
+                        .replace("<platzfarbe>", Messages.SIDEBAR_PLATZ_FARBEN[place - 1])
+                        .replace("<namensfarbe>", Rank.of(entry.getValue().points()).color());
+                lines.add(Messages.mm(template,
                         Placeholder.unparsed("platz", String.valueOf(place)),
                         Placeholder.unparsed("name", shorten(entry.getValue().name())),
                         Placeholder.unparsed("punkte", Scorer.format(entry.getValue().points()))));
@@ -282,12 +299,23 @@ public final class RankingBoard {
             lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_ICH,
                     Placeholder.unparsed("platz", String.valueOf(rank)),
                     Placeholder.unparsed("punkte", Scorer.format(ownPoints))));
+            lines.add(gapLine(rank, ownPoints, snapshot));
         }
-        Rank stufe = Rank.of(ownPoints);
+
+        RankProgress progress = RankProgress.of(ownPoints);
         lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_RANG
-                        .replace("<rang>", stufe.colored()),
-                Placeholder.unparsed("faktor",
-                        String.valueOf(Math.round(this.plugin.scorer().wealthFactor(ownPoints) * 100.0)))));
+                .replace("<rang>", progress.rank().colored())
+                .replace("<naechster>", progress.isHighest()
+                        ? Messages.SIDEBAR_KEIN_NAECHSTER
+                        : progress.next().colored())));
+        if (progress.isHighest()) {
+            lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_MAX));
+        } else {
+            lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_BALKEN
+                            .replace("<balken>", this.plugin.settings().progressBar(progress)),
+                    Placeholder.unparsed("prozent", String.valueOf(progress.percent()))));
+        }
+        lines.add(Component.empty());
         lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_TODE,
                 Placeholder.unparsed("tode", String.valueOf(player.getStatistic(Statistic.DEATHS)))));
         lines.add(Messages.mm(Messages.SIDEBAR_ZEILE_TAG,

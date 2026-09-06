@@ -15,8 +15,6 @@ import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.entity.EntityRemoveEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.inventory.ClickType;
-import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -72,7 +70,7 @@ public final class BankListener implements Listener {
         if (event.getRightClicked() instanceof Mannequin mannequin) {
             this.plugin.npcs().anchor(mannequin, id);
         }
-        new BankGui(this.plugin).open(player);
+        this.plugin.windows().open(player, new MenuGui(this.plugin, player));
     }
 
     @EventHandler
@@ -122,84 +120,31 @@ public final class BankListener implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (!(event.getInventory().getHolder(false) instanceof BankGui gui)) {
+        if (!(event.getInventory().getHolder(false) instanceof BankWindow window)) {
             return;
         }
         if (!(event.getWhoClicked() instanceof Player player)) {
             event.setCancelled(true);
             return;
         }
-        int rawSlot = event.getRawSlot();
-        if (rawSlot >= 0 && rawSlot < BankGui.SIZE) {
-            if (rawSlot == BankGui.CONFIRM_SLOT) {
-                // Deckt auch Zahlentasten, Zweithand-Tausch, Fallenlassen und Kreativ-Klonen ab:
-                // all diese Klicks melden den Zielplatz als Rohslot.
-                event.setCancelled(true);
-                ClickType click = event.getClick();
-                if (click == ClickType.LEFT || click == ClickType.RIGHT
-                        || click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT) {
-                    gui.confirm(player);
-                }
-                return;
-            }
-            if (!BankGui.isDepositSlot(rawSlot)) {
-                // Rahmen, Wertanzeige und Kontostand sind nur Anzeige.
-                event.setCancelled(true);
-                return;
-            }
-        }
-        if (event.getAction() == InventoryAction.COLLECT_TO_CURSOR && gui.isButton(event.getCursor())) {
-            // Ein Doppelklick saugt passende Items aus beiden Inventaren - auch den Knopf.
-            event.setCancelled(true);
-            return;
-        }
-        if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
-                && rawSlot >= BankGui.SIZE
-                && gui.isButton(event.getCurrentItem())) {
-            event.setCancelled(true);
-            return;
-        }
-        if (touchesDeposit(event, rawSlot)) {
-            gui.requestUpdate(player);
-        }
-    }
-
-    /** Kann dieser Klick ueberhaupt einen Ablageplatz veraendert haben? */
-    private static boolean touchesDeposit(InventoryClickEvent event, int rawSlot) {
-        InventoryAction action = event.getAction();
-        if (action == InventoryAction.NOTHING || rawSlot < 0) {
-            return false;
-        }
-        if (rawSlot < BankGui.SIZE) {
-            return true;
-        }
-        // Klicks im eigenen Inventar erreichen das Bank-Fenster nur ueber diese Aktionen.
-        return action == InventoryAction.MOVE_TO_OTHER_INVENTORY
-                || action == InventoryAction.COLLECT_TO_CURSOR
-                || action == InventoryAction.HOTBAR_SWAP
-                || action.name().endsWith("_BUNDLE");
+        window.handleClick(event, player);
     }
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (!(event.getInventory().getHolder(false) instanceof BankGui gui)) {
+        if (!(event.getInventory().getHolder(false) instanceof BankWindow window)) {
             return;
         }
-        for (int rawSlot : event.getRawSlots()) {
-            if (rawSlot < BankGui.SIZE && !BankGui.isDepositSlot(rawSlot)) {
-                // Ein Zieh-Vorgang laesst sich nur ganz oder gar nicht abbrechen.
-                event.setCancelled(true);
-                return;
-            }
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            event.setCancelled(true);
+            return;
         }
-        if (event.getWhoClicked() instanceof Player player) {
-            gui.requestUpdate(player);
-        }
+        window.handleDrag(event, player);
     }
 
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
-        if (!(event.getInventory().getHolder(false) instanceof BankGui gui)) {
+        if (!(event.getInventory().getHolder(false) instanceof BankWindow window)) {
             return;
         }
         if (!(event.getPlayer() instanceof Player player)) {
@@ -213,7 +158,9 @@ public final class BankListener implements Listener {
         boolean keepInventory = remembered != null
                 ? remembered
                 : Boolean.TRUE.equals(player.getWorld().getGameRuleValue(GameRules.KEEP_INVENTORY));
-        gui.refund(player, death && !keepInventory);
+        window.onClosed(player, death && !keepInventory);
+        // Beim Wechsel zwischen zwei Bank-Fenstern bleibt der Fortschrittsbalken stehen.
+        this.plugin.progressBar().hideLater(player);
     }
 
     // ----- Rangliste -----
@@ -226,6 +173,7 @@ public final class BankListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         this.plugin.ranking().forget(event.getPlayer());
+        this.plugin.progressBar().hide(event.getPlayer());
         this.lastOpenTick.remove(event.getPlayer().getUniqueId());
         this.keepOnDeath.remove(event.getPlayer().getUniqueId());
     }

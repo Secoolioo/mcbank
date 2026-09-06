@@ -32,10 +32,62 @@ public final class GuiItems {
 
     /** Grauer Fuellstein ohne Beschriftung fuer den Rahmen. */
     public static ItemStack filler() {
-        ItemStack stack = ItemStack.of(Material.GRAY_STAINED_GLASS_PANE);
+        return filler(Material.GRAY_STAINED_GLASS_PANE);
+    }
+
+    /** Fuellstein in einer bestimmten Farbe, ohne Beschriftung. */
+    public static ItemStack filler(Material material) {
+        ItemStack stack = ItemStack.of(material);
         stack.setData(DataComponentTypes.TOOLTIP_DISPLAY,
                 TooltipDisplay.tooltipDisplay().hideTooltip(true).build());
         return stack;
+    }
+
+    /** Beschrifteter Gegenstand, der von sich aus schimmert. */
+    public static ItemStack glowing(Material material, String name, List<String> lore) {
+        ItemStack stack = labelled(material, name, lore);
+        stack.setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
+        return stack;
+    }
+
+    /**
+     * Ein Kopf mit dem Gesicht eines Spielers.
+     *
+     * @param withSkin false zeigt ein Standardgesicht - sinnvoll ohne Internetverbindung
+     */
+    public static ItemStack playerHead(org.bukkit.OfflinePlayer owner, String name, List<String> lore,
+                                       boolean withSkin) {
+        ItemStack head = ItemStack.of(Material.PLAYER_HEAD);
+        if (withSkin && owner.getName() != null) {
+            try {
+                head.setData(DataComponentTypes.PROFILE, ResolvableProfile.resolvableProfile()
+                        .uuid(owner.getUniqueId())
+                        .name(owner.getName())
+                        .build());
+            } catch (RuntimeException ex) {
+                // Ungueltiger Name: dann eben ohne Gesicht, das Fenster bleibt benutzbar.
+            }
+        }
+        apply(head, name, lore);
+        return head;
+    }
+
+    /** Ein Kopf zu einem gespeicherten Namen, ohne dass der Spieler online sein muss. */
+    public static ItemStack namedHead(java.util.UUID id, String playerName, String name, List<String> lore,
+                                      boolean withSkin) {
+        ItemStack head = ItemStack.of(Material.PLAYER_HEAD);
+        if (withSkin) {
+            try {
+                head.setData(DataComponentTypes.PROFILE, ResolvableProfile.resolvableProfile()
+                        .uuid(id)
+                        .name(playerName)
+                        .build());
+            } catch (RuntimeException ex) {
+                // Namen aus alten Dateien koennen ungueltig sein - dann ohne Gesicht.
+            }
+        }
+        apply(head, name, lore);
+        return head;
     }
 
     /** Beschrifteter Gegenstand fuer Knoepfe und Anzeigen. */

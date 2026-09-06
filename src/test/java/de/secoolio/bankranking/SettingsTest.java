@@ -54,9 +54,9 @@ class SettingsTest {
         assertEquals(2.0, settings.enchantBonusPerLevel(), 1e-9);
         assertEquals(Settings.DEFAULT_FALLBACK_VALUE, settings.fallbackValue(), 1e-9);
         assertEquals(Settings.DEFAULT_NPC_NAME, settings.npcName());
-        // vier Seltenheits-Faktoren, sechs Kategorien, Verzauberungs-Bonus, Standardwert
-        // sowie je drei Zahlenwerte der beiden Bremsen
-        assertEquals(18, log.warnings().size(), () -> "Warnungen: " + log.warnings());
+        // vier Seltenheits-Faktoren, sechs Kategorien, Verzauberungs-Bonus, Standardwert,
+        // je drei Zahlenwerte der beiden Bremsen und die Länge des Fortschrittsbalkens
+        assertEquals(19, log.warnings().size(), () -> "Warnungen: " + log.warnings());
     }
 
     @Test

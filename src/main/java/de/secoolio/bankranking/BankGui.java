@@ -6,11 +6,12 @@ import java.util.List;
 
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 /**
@@ -21,15 +22,19 @@ import org.bukkit.inventory.ItemStack;
  * ({@code inventory.getHolder(false) instanceof BankGui}). Aus einem Inventar-Ereignis heraus wird
  * nie {@code closeInventory()} oder {@code openInventory()} aufgerufen.
  */
-public final class BankGui implements InventoryHolder {
+public final class BankGui implements BankWindow {
 
     public static final int SIZE = 54;
+    /** Zurueck zum Hauptmenue. */
+    public static final int BACK_SLOT = 45;
+    /** Zeigt laufend den Wert der eingelegten Items. */
+    public static final int VALUE_SLOT = 47;
     /** Der Haken-Knopf, unten in der Mitte. */
     public static final int CONFIRM_SLOT = 49;
-    /** Zeigt laufend den Wert der eingelegten Items. */
-    public static final int VALUE_SLOT = 45;
     /** Zeigt den eigenen Kontostand. */
-    public static final int ACCOUNT_SLOT = 53;
+    public static final int ACCOUNT_SLOT = 51;
+    /** Schliesst das Fenster. */
+    public static final int CLOSE_SLOT = 53;
 
     /** Die 28 freien Plaetze in der Mitte (vier Reihen zu sieben). */
     private static final int[] DEPOSIT_SLOTS = buildDepositSlots();
@@ -76,6 +81,92 @@ public final class BankGui implements InventoryHolder {
             }
         }
         this.inventory.setItem(CONFIRM_SLOT, this.button);
+        this.inventory.setItem(BACK_SLOT, GuiItems.labelled(Material.ARROW,
+                Messages.BUTTON_ZURUECK_NAME, List.of(Messages.BUTTON_ZURUECK_LORE)));
+        this.inventory.setItem(CLOSE_SLOT, GuiItems.labelled(Material.BARRIER,
+                Messages.BUTTON_SCHLIESSEN_NAME, List.of(Messages.BUTTON_SCHLIESSEN_LORE)));
+    }
+
+    @Override
+    public void handleClick(InventoryClickEvent event, Player player) {
+        int rawSlot = event.getRawSlot();
+        if (rawSlot >= 0 && rawSlot < SIZE) {
+            if (!isDepositSlot(rawSlot)) {
+                // Rahmen, Anzeigen und Knoepfe sind nie Ablageflaeche.
+                event.setCancelled(true);
+                handleButton(rawSlot, event, player);
+                return;
+            }
+        }
+        if (event.getAction() == InventoryAction.COLLECT_TO_CURSOR && isButton(event.getCursor())) {
+            // Ein Doppelklick saugt passende Items aus beiden Inventaren - auch den Knopf.
+            event.setCancelled(true);
+            return;
+        }
+        if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                && rawSlot >= SIZE
+                && isButton(event.getCurrentItem())) {
+            event.setCancelled(true);
+            return;
+        }
+        if (touchesDeposit(event, rawSlot)) {
+            requestUpdate(player);
+        }
+    }
+
+    private void handleButton(int rawSlot, InventoryClickEvent event, Player player) {
+        switch (rawSlot) {
+            case CONFIRM_SLOT -> {
+                ClickType click = event.getClick();
+                // Zahlentasten, Zweithand-Tausch und Kreativ-Klonen melden denselben Rohslot,
+                // loesen aber bewusst keine Abgabe aus.
+                if (click == ClickType.LEFT || click == ClickType.RIGHT
+                        || click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT) {
+                    confirm(player);
+                }
+            }
+            case BACK_SLOT -> {
+                BankWindows.click(player);
+                this.plugin.windows().openLater(player, new MenuGui(this.plugin, player));
+            }
+            case CLOSE_SLOT -> this.plugin.windows().closeLater(player);
+            default -> {
+                // Rahmen und Anzeigen tun nichts.
+            }
+        }
+    }
+
+    /** Kann dieser Klick ueberhaupt einen Ablageplatz veraendert haben? */
+    private static boolean touchesDeposit(InventoryClickEvent event, int rawSlot) {
+        InventoryAction action = event.getAction();
+        if (action == InventoryAction.NOTHING || rawSlot < 0) {
+            return false;
+        }
+        if (rawSlot < SIZE) {
+            return true;
+        }
+        // Klicks im eigenen Inventar erreichen das Bank-Fenster nur ueber diese Aktionen.
+        return action == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                || action == InventoryAction.COLLECT_TO_CURSOR
+                || action == InventoryAction.HOTBAR_SWAP
+                || action.name().endsWith("_BUNDLE");
+    }
+
+    @Override
+    public void handleDrag(InventoryDragEvent event, Player player) {
+        for (int rawSlot : event.getRawSlots()) {
+            if (rawSlot < SIZE && !isDepositSlot(rawSlot)) {
+                // Ein Zieh-Vorgang laesst sich nur ganz oder gar nicht abbrechen.
+                event.setCancelled(true);
+                return;
+            }
+        }
+        requestUpdate(player);
+    }
+
+    @Override
+    public void onClosed(Player player, boolean dropAll) {
+        refund(player, dropAll);
     }
 
     @Override
@@ -87,9 +178,8 @@ public final class BankGui implements InventoryHolder {
         return stack != null && !stack.isEmpty() && stack.isSimilar(this.button);
     }
 
-    public void open(Player player) {
-        player.openInventory(this.inventory);
-        player.playSound(player.getLocation(), Sound.BLOCK_BARREL_OPEN, SoundCategory.MASTER, 0.6f, 1.4f);
+    /** Fuellt die Anzeigen; das Oeffnen selbst uebernimmt {@link BankWindows}. */
+    public void prepare(Player player) {
         updateInfo(player);
     }
 
@@ -122,6 +212,7 @@ public final class BankGui implements InventoryHolder {
             }
             this.inventory.setItem(VALUE_SLOT,
                     GuiItems.labelled(Material.GOLD_INGOT, Messages.WERT_ANZEIGE_NAME, lore));
+            this.plugin.progressBar().update(player, preview.total());
         }
 
         int rank = this.plugin.playerData().rank(player.getUniqueId());
@@ -179,8 +270,10 @@ public final class BankGui implements InventoryHolder {
 
         // Erst buchen und speichern, dann die Items entfernen: schlaegt das Speichern fehl,
         // behaelt der Spieler alles und der Marktpreis bleibt unberuehrt.
+        PlayerStats.Deposit record = new PlayerStats.Deposit(System.currentTimeMillis(), total,
+                itemCount, deposit.topMaterial());
         PlayerData.AddResult result = this.plugin.playerData().add(player.getUniqueId(), player.getName(),
-                total, deposit.saturationDeltas());
+                total, deposit.saturationDeltas(), record, deposit.itemsPerMaterial());
         if (!result.saved()) {
             deny(player, Messages.BANK_FEHLER);
             return;
@@ -198,8 +291,13 @@ public final class BankGui implements InventoryHolder {
             }
         }
 
-        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 0.7f, 1.6f);
-        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SoundCategory.MASTER, 0.9f, 1.2f);
+        Rank beforeRank = Rank.of(before);
+        Rank after = Rank.of(result.total());
+        if (after != beforeRank) {
+            this.plugin.effects().rankUp(player, after, total);
+        } else {
+            this.plugin.effects().deposit(player, total, result.total());
+        }
         this.plugin.send(player, Messages.BANK_BESTAETIGT,
                 Placeholder.unparsed("anzahl", String.valueOf(itemCount)),
                 Placeholder.unparsed("punkte", Scorer.format(total)),
@@ -208,14 +306,6 @@ public final class BankGui implements InventoryHolder {
             this.plugin.send(player, Messages.BANK_GEDAEMPFT,
                     Placeholder.unparsed("roh", Scorer.format(deposit.rawTotal())),
                     Placeholder.unparsed("prozent", percent(deposit.rawTotal(), deposit.total())));
-        }
-        Rank beforeRank = Rank.of(before);
-        Rank after = Rank.of(result.total());
-        if (after != beforeRank) {
-            player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE,
-                    SoundCategory.MASTER, 0.8f, 1.0f);
-            this.plugin.send(player, Messages.RANG_AUFSTIEG,
-                    Placeholder.parsed("rang", after.colored()));
         }
         if (!unpacked.emptiedContainers().isEmpty()) {
             this.plugin.send(player, Messages.BANK_BEHAELTER_ZURUECK);
@@ -227,11 +317,12 @@ public final class BankGui implements InventoryHolder {
                 + " (roh " + Scorer.format(deposit.rawTotal()) + ", " + deposit.valuations().size()
                 + " Stapel, " + itemCount + " Items) -> " + Scorer.format(result.total()));
         updateInfo(player);
+        this.plugin.progressBar().update(player, 0.0);
         this.plugin.ranking().refreshAll();
     }
 
     private void deny(Player player, String message) {
-        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, SoundCategory.MASTER, 0.7f, 1.0f);
+        this.plugin.effects().deny(player);
         this.plugin.send(player, message);
         // Die Anzeige darf den abgelehnten Zustand nicht ueberleben.
         updateInfo(player);

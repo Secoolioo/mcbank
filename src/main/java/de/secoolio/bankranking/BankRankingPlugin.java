@@ -25,6 +25,9 @@ public final class BankRankingPlugin extends JavaPlugin {
     private Scorer scorer;
     private PlayerData playerData;
     private NpcManager npcs;
+    private BankWindows windows;
+    private RankProgressBar progressBar;
+    private Effects effects;
     private RankingBoard ranking;
 
     @Override
@@ -38,6 +41,9 @@ public final class BankRankingPlugin extends JavaPlugin {
         this.playerData.load();
 
         this.npcs = new NpcManager(this);
+        this.windows = new BankWindows(this);
+        this.progressBar = new RankProgressBar(this);
+        this.effects = new Effects(this);
         this.npcs.load();
 
         this.ranking = new RankingBoard(this);
@@ -73,6 +79,10 @@ public final class BankRankingPlugin extends JavaPlugin {
             }
             this.playerData.saveIfDirty();
         }
+        if (this.progressBar != null) {
+            // Direkt und ohne Scheduler: der ist beim Herunterfahren gesperrt.
+            this.progressBar.hideAll();
+        }
         if (this.ranking != null) {
             this.ranking.shutdown();
         }
@@ -89,6 +99,9 @@ public final class BankRankingPlugin extends JavaPlugin {
         boolean dataOk = this.playerData.reload();
         this.npcs.applySettings();
         this.ranking.reapply();
+        if (!this.settings.bossBarEnabled()) {
+            this.progressBar.hideAll();
+        }
         getLogger().info("Neu geladen: " + this.settings.summaryLine());
         return dataOk;
     }
@@ -122,6 +135,18 @@ public final class BankRankingPlugin extends JavaPlugin {
 
     public PlayerData playerData() {
         return this.playerData;
+    }
+
+    public BankWindows windows() {
+        return this.windows;
+    }
+
+    public RankProgressBar progressBar() {
+        return this.progressBar;
+    }
+
+    public Effects effects() {
+        return this.effects;
     }
 
     public NpcManager npcs() {

@@ -29,6 +29,21 @@ gui:
   # Abgeben-Knopf als Spielerkopf mit gruenem Haken (true) oder als gruener Farbstoff (false).
   # Der Kopf braucht beim ersten Anzeigen eine Internetverbindung des Spielers.
   haken-kopf: true
+  # Spielerkoepfe in Rangliste und Konto. Ohne Internetverbindung zeigt der Client sonst
+  # Standardgesichter - dann hier auf false stellen.
+  koepfe: true
+
+bossbar:
+  # Fortschrittsbalken zum naechsten Rang am oberen Bildrand, solange ein Bank-Fenster offen ist.
+  aktiv: true
+
+effekte:
+  # Partikel beim Abgeben und beim Aufstieg.
+  partikel: true
+  # Grosser Text in der Bildmitte mit den erhaltenen Punkten.
+  titel: true
+  # Meldung an alle Spieler im Chat, wenn jemand einen Rang aufsteigt.
+  aufstieg-broadcast: true
 
 sidebar:
   # Rangliste am rechten Bildschirmrand ein- oder ausschalten.
@@ -38,6 +53,10 @@ sidebar:
   aktiv: true
   # Ueberschrift der Rangliste (MiniMessage-Format).
   titel: "<gold><bold>Rangliste</bold></gold>"
+  # Zeichen und Laenge des Fortschrittsbalkens. Der senkrechte Strich ist in jeder Schrift
+  # vorhanden; wer ein Resourcepack hat, kann hier auch ein Blockzeichen eintragen.
+  balken-zeichen: "|"
+  balken-laenge: 10
 
 punkte:
   # Multiplikator je Kategorie. 1.0 = neutral, 2.0 = doppelt, 0.5 = halb.

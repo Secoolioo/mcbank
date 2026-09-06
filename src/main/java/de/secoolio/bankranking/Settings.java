@@ -45,6 +45,9 @@ public final class Settings {
     public static final String DEFAULT_NPC_NAME = "<gold><bold>Bank</bold></gold>";
     public static final String DEFAULT_NPC_DESCRIPTION = "<gray>Rechtsklick: Items abgeben";
     public static final String DEFAULT_SIDEBAR_TITLE = "<gold><bold>Rangliste</bold></gold>";
+    /** Der senkrechte Strich ist in jeder Schrift vorhanden, auch ohne Resourcepack. */
+    public static final String DEFAULT_BAR_SYMBOL = "|";
+    public static final double DEFAULT_BAR_LENGTH = 10.0;
 
     /** Die Zahlenwerte beider Bremsen, gebuendelt statt als Index-Array. */
     private record Damping(boolean wealthEnabled, double wealthThreshold, double wealthStrength,
@@ -69,8 +72,15 @@ public final class Settings {
     private final String npcName;
     private final String npcDescription;
     private final boolean confirmHead;
+    private final boolean bossBarEnabled;
+    private final boolean effectParticles;
+    private final boolean effectTitle;
+    private final boolean rankUpBroadcast;
+    private final boolean guiHeads;
     private final boolean sidebarEnabled;
     private final String sidebarTitle;
+    private final String barSymbol;
+    private final int barLength;
 
     private Settings(Map<ItemRarity, Double> rarityBase,
                      Map<Category, Double> categoryMultiplier,
@@ -82,8 +92,11 @@ public final class Settings {
                      String npcName,
                      String npcDescription,
                      boolean confirmHead,
+                     boolean[] toggles,
                      boolean sidebarEnabled,
-                     String sidebarTitle) {
+                     String sidebarTitle,
+                     String barSymbol,
+                     int barLength) {
         this.rarityBase = rarityBase;
         this.categoryMultiplier = categoryMultiplier;
         this.enchantBonusPerLevel = enchantBonusPerLevel;
@@ -101,8 +114,15 @@ public final class Settings {
         this.npcName = npcName;
         this.npcDescription = npcDescription;
         this.confirmHead = confirmHead;
+        this.bossBarEnabled = toggles[0];
+        this.effectParticles = toggles[1];
+        this.effectTitle = toggles[2];
+        this.rankUpBroadcast = toggles[3];
+        this.guiHeads = toggles[4];
         this.sidebarEnabled = sidebarEnabled;
         this.sidebarTitle = sidebarTitle;
+        this.barSymbol = barSymbol;
+        this.barLength = barLength;
     }
 
     public static Settings load(ConfigurationSection c, Logger log) {
@@ -177,11 +197,25 @@ public final class Settings {
         String npcName = readMiniMessage(c, "npc.name", DEFAULT_NPC_NAME, log);
         String npcDescription = readMiniMessage(c, "npc.beschreibung", DEFAULT_NPC_DESCRIPTION, log);
         boolean confirmHead = readFlag(c, "gui.haken-kopf", true, log);
+        boolean[] toggles = {
+                readFlag(c, "bossbar.aktiv", true, log),
+                readFlag(c, "effekte.partikel", true, log),
+                readFlag(c, "effekte.titel", true, log),
+                readFlag(c, "effekte.aufstieg-broadcast", true, log),
+                readFlag(c, "gui.koepfe", true, log),
+        };
         boolean sidebarEnabled = readFlag(c, "sidebar.aktiv", true, log);
         String sidebarTitle = readMiniMessage(c, "sidebar.titel", DEFAULT_SIDEBAR_TITLE, log);
+        String barSymbol = readText(c, "sidebar.balken-zeichen", DEFAULT_BAR_SYMBOL);
+        if (barSymbol.isEmpty()) {
+            barSymbol = DEFAULT_BAR_SYMBOL;
+        }
+        int barLength = (int) Math.round(readPositive(c, "sidebar.balken-laenge", DEFAULT_BAR_LENGTH, log));
+        barLength = Math.max(4, Math.min(30, barLength));
 
         return new Settings(rarity, multipliers, bonus, fallback, damping, materialBase, overrides,
-                npcName, npcDescription, confirmHead, sidebarEnabled, sidebarTitle);
+                npcName, npcDescription, confirmHead, toggles, sidebarEnabled, sidebarTitle,
+                barSymbol, barLength);
     }
 
     private static double defaultRarity(ItemRarity rarity) {
@@ -252,6 +286,11 @@ public final class Settings {
 
     private static boolean isUsable(double value) {
         return Double.isFinite(value) && value >= 0.0;
+    }
+
+    private static String readText(ConfigurationSection c, String path, String fallback) {
+        String value = c.getString(path);
+        return value == null ? fallback : value;
     }
 
     /**
@@ -354,12 +393,44 @@ public final class Settings {
         return this.confirmHead;
     }
 
+    /** Fortschrittsbalken am oberen Bildrand, solange ein Bank-Fenster offen ist. */
+    public boolean bossBarEnabled() {
+        return this.bossBarEnabled;
+    }
+
+    public boolean effectParticles() {
+        return this.effectParticles;
+    }
+
+    public boolean effectTitle() {
+        return this.effectTitle;
+    }
+
+    /** Meldung an alle, wenn jemand einen Rang aufsteigt. */
+    public boolean rankUpBroadcast() {
+        return this.rankUpBroadcast;
+    }
+
+    /** Spielerkoepfe in Rangliste und Konto; ohne Internet zeigt der Client sonst Standardgesichter. */
+    public boolean guiHeads() {
+        return this.guiHeads;
+    }
+
     public boolean sidebarEnabled() {
         return this.sidebarEnabled;
     }
 
     public String sidebarTitle() {
         return this.sidebarTitle;
+    }
+
+    /** Der Fortschrittsbalken in der eingestellten Laenge und Zeichenwahl. */
+    public String progressBar(RankProgress progress) {
+        return progress.bar(this.barLength, this.barSymbol);
+    }
+
+    public int barLength() {
+        return this.barLength;
     }
 
     /** Einzeilige Zusammenfassung fuer das Server-Log beim Laden. */
