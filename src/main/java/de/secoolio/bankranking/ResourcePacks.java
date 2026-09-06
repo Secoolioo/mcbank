@@ -306,13 +306,24 @@ public final class ResourcePacks implements Listener {
     /**
      * Schickt die Anfrage an einen Spieler, der schon in der Welt ist.
      *
-     * <p>Nur als Rueckfall: wer das Pack bereits beim Verbinden bekommen hat, bekommt es hier
-     * nicht noch einmal - ein zweites Mal loeste genau den Neuaufbau aus, den die
-     * Konfigurationsphase gerade vermeidet.
+     * <p>Dies ist das Sicherheitsnetz unter der Konfigurationsphase, und es haengt bewusst am
+     * <em>Ergebnis</em> statt am Versuch: uebersprungen wird nur, wer das Pack nachweislich
+     * geladen hat. Es am Versuch aufzuhaengen war ein Fehler - lieferte die Konfigurationsphase
+     * still nichts aus, galt der Spieler trotzdem als versorgt, der Beitrittsweg schwieg
+     * ebenfalls, und niemand bekam je ein Pack. Genau so sah es im Client-Protokoll aus: keine
+     * Pack-Meldung, kein Fehlschlag, gar nichts.
+     *
+     * <p>Hat die Konfigurationsphase getragen, steht der Spieler laengst in {@code loaded} -
+     * der Client meldet den Zustand noch dort, bevor er die Welt betritt. Dann passiert hier
+     * nichts, und der teure Neuaufbau mitten im Spiel bleibt aus.
      */
     void send(Player player) {
-        if (this.configured.contains(player.getUniqueId())) {
+        if (this.loaded.contains(player.getUniqueId())) {
             return;
+        }
+        if (this.configured.contains(player.getUniqueId())) {
+            this.plugin.getLogger().info(player.getName() + " hat das Pack in der "
+                    + "Konfigurationsphase nicht geladen - es wird beim Beitritt nachgereicht.");
         }
         send(player, this.url);
     }
