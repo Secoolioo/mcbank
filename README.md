@@ -37,7 +37,11 @@ bildschirmfüllendem Steckbrief.
 - **Der Name des Gejagten wird in der TAB-Liste rot**, und er selbst bekommt einen Balken am oberen
   Bildrand.
 - **Beim Aussetzen sehen alle einmalig ein WANTED-Plakat** — bildschirmfüllend, mit dem echten Skin-
-  Gesicht des Gejagten und der Belohnung. Dazu eine Chatzeile, die stehen bleibt.
+  Gesicht des Gejagten. Die Belohnung steht dort als Sinnbild und Stückzahl: ein Netherit-Würfel mit
+  einer 3 und ein Diamant mit einer 64 brauchen keine Erklärung. Dazu ein Chat-Plakat, das stehen bleibt.
+- **Die Belohnung ist nie eine abstrakte Zahl.** Überall steht, was der Killer tatsächlich bekommt —
+  „2 Netheritblöcke und 12 Diamanten". Eine Punktzahl wäre doppelt irreführend gewesen: sie sähe aus
+  wie ein Bankguthaben, entspräche aber nicht dem, was die Bank für dieselben Gegenstände gutschreibt.
 - **Volles Inventar?** Dann erscheint vor dem Killer eine schwebende Kiste, die nur er öffnen kann und
   die verschwindet, sobald sie leer ist. `/kopfgeld beute` holt sie von überall.
 
@@ -50,7 +54,12 @@ eigene Western-Klänge.
 
 **Niemand wird ausgesperrt.** Wer das Pack ablehnt oder dessen Download scheitert, bekommt
 automatisch die Sparfassung: Titel und Untertitel in gewöhnlicher Schrift, Vanilla-Klänge. Das
-Gesicht sieht er trotzdem — in der Chatzeile steckt es als Vanilla-Objekt und braucht kein Pack.
+Gesicht sieht er trotzdem — im Chat-Plakat steckt es als Vanilla-Objekt und braucht kein Pack.
+
+**Und wenn der Port zu ist?** Dann reicht das Plugin das Pack einmalig über die öffentliche Adresse
+des Releases nach. Das ist der Fall, den sonst niemand bemerkt: der Selbsttest des Plugins geht nur
+an sich selbst und sagt nichts darüber, ob ein Mitspieler durch die Firewall kommt.
+`/bankranking pack` zeigt, wer es geladen hat.
 
 Eigene Klänge lassen sich ohne Codeänderung einsetzen: eine `.ogg`-Datei nach
 `plugins/BankRanking/pack-eigene/sounds/` legen, benannt wie das Ereignis (`plakat.ogg`,
