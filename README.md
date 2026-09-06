@@ -1,7 +1,8 @@
 # BankRanking
 
 Paper-Plugin für Minecraft **26.2** (Java 25): Bank-NPCs, bei denen Spieler Items abgeben und dafür
-Punkte bekommen, plus eine Rangliste am rechten Bildschirmrand.
+Punkte bekommen, eine Rangliste am rechten Bildschirmrand — und Kopfgelder samt
+bildschirmfüllendem Steckbrief.
 
 ## Was es kann
 
@@ -23,6 +24,37 @@ Punkte bekommen, plus eine Rangliste am rechten Bildschirmrand.
 - **Rangliste am Bildschirmrand**: die ersten drei in Gold, Silber und Bronze, jeder Name in der
   Farbe seines Rangs, dazu dein Platz, der Abstand zum Vordermann, dein Fortschritt, deine Tode
   und der Minecraft-Tag.
+
+### Kopfgeld
+
+- **`/kopfgeld`** öffnet die Auswahl aller Spieler. Wer angeklickt wird, bekommt ein Einsatzfenster;
+  wer den Gejagten tötet, bekommt den Einsatz.
+- **Einsatz** nur in Smaragden, Diamanten und Netherite, jeweils auch als Block. Nur unverzauberte
+  und unbenannte Ware — sonst wäre "Material und Anzahl" keine verlustfreie Darstellung.
+- **Mehrere Einsätze auf dieselbe Person sammeln sich in einem Topf**, und ein Kopfgeld verfällt nie.
+- **Missbrauchsschutz**: kein Kopfgeld auf sich selbst; wer selbst eingezahlt hat, kassiert nicht;
+  nach einer Auszahlung ist das Opfer eine Weile gesperrt und derselbe Killer noch länger.
+- **Der Name des Gejagten wird in der TAB-Liste rot**, und er selbst bekommt einen Balken am oberen
+  Bildrand.
+- **Beim Aussetzen sehen alle einmalig ein WANTED-Plakat** — bildschirmfüllend, mit dem echten Skin-
+  Gesicht des Gejagten und der Belohnung. Dazu eine Chatzeile, die stehen bleibt.
+- **Volles Inventar?** Dann erscheint vor dem Killer eine schwebende Kiste, die nur er öffnen kann und
+  die verschwindet, sobald sie leer ist. `/kopfgeld beute` holt sie von überall.
+
+### Das Resourcepack
+
+Das Plugin bringt ein eigenes Resourcepack mit und liefert es über einen winzigen eingebauten
+Webserver aus — kein Internet nötig, der Hash kann nie veralten. Darin stecken die Grafik des
+Plakats, eine Pixelschrift, mit der der Server das Spielergesicht Punkt für Punkt malt, und elf
+eigene Western-Klänge.
+
+**Niemand wird ausgesperrt.** Wer das Pack ablehnt oder dessen Download scheitert, bekommt
+automatisch die Sparfassung: Titel und Untertitel in gewöhnlicher Schrift, Vanilla-Klänge. Das
+Gesicht sieht er trotzdem — in der Chatzeile steckt es als Vanilla-Objekt und braucht kein Pack.
+
+Eigene Klänge lassen sich ohne Codeänderung einsetzen: eine `.ogg`-Datei nach
+`plugins/BankRanking/pack-eigene/sounds/` legen, benannt wie das Ereignis (`plakat.ogg`,
+`schuss.ogg`, …). Beim nächsten Start wird sie ins Pack übernommen.
 
 ## Punkte-Formel
 
@@ -74,10 +106,17 @@ einschließlich beider Bremsen.
 ## Dateien auf dem Server
 
 ```
-plugins/BankRanking/config.yml     alle Zahlen, NPC-Name, Sidebar-Titel
-plugins/BankRanking/players.yml    Spieler-UUID -> Name und Punkte
-plugins/BankRanking/npcs.yml       Positionen und Skins der NPCs
+plugins/BankRanking/config.yml        alle Zahlen, NPC-Name, Sidebar-Titel, Kopfgeld, Resourcepack
+plugins/BankRanking/players.yml       Spieler-UUID -> Name und Punkte
+plugins/BankRanking/npcs.yml          Positionen und Skins der NPCs
+plugins/BankRanking/kopfgelder.yml    laufende Kopfgelder und noch nicht abgeholte Beute
+plugins/BankRanking/pack/             das ausgelieferte Resourcepack
+plugins/BankRanking/pack-eigene/      eigene Klänge, die das mitgelieferte Pack überschreiben
 ```
+
+`kopfgelder.yml` enthält echte Gegenstände von Spielern. Wird sie unlesbar, rührt das Plugin sie
+**nicht** an und sperrt jeden Schreibzugriff, bis jemand sie repariert hat — anders als
+`players.yml`, die im selben Fall zur Seite gelegt wird.
 
 ## Bauen
 
@@ -87,7 +126,16 @@ Es genügt eine Java-Laufzeit; Gradle lädt sich das nötige JDK 25 selbst nach 
 ./gradlew build
 ```
 
-Ergebnis: `build/libs/BankRanking-2.0.0.jar`.
+Ergebnis: `build/libs/BankRanking-3.0.0.jar`.
+
+Die losen Pack-Dateien liegen eingecheckt unter `src/main/pack`; Gradle packt sie reproduzierbar
+(feste Zeitstempel, feste Reihenfolge), damit der SHA-1 zwischen Builds gleich bleibt. Neu erzeugen
+lassen sie sich mit Python 3 samt Pillow und numpy:
+
+```bash
+python3 tools/pack/build_pack.py src/main/pack
+python3 tools/sounds/build_sounds.py
+```
 
 ## Herunterladen
 
@@ -97,7 +145,7 @@ und im Ordner `dist/`.
 Direkt auf dem Server, im Ordner `plugins/`:
 
 ```bash
-wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-2.0.0.jar
+wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-3.0.0.jar
 ```
 
 Oder das ganze Projekt holen:
@@ -111,5 +159,7 @@ git clone https://github.com/Secoolioo/mcbank.git
 1. JAR nach `plugins/` auf den Paper-26.2-Server kopieren.
 2. Server neu starten (nicht `/reload`).
 3. Im Spiel `/spawnrank` an der gewünschten Stelle ausführen.
+4. Für die Kopfgelder: den Port aus `resourcepack.port` (Standard 8123) in der Firewall freigeben,
+   damit die Spieler das Pack laden können. Ohne ihn läuft alles weiter, nur eben in der Sparfassung.
 
 Voraussetzung: Paper **26.2** und Java **25**. Auf älteren Versionen startet das Plugin nicht.

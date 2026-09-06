@@ -3,8 +3,8 @@ plugins {
 }
 
 group = "de.secoolio"
-version = "2.0.0"
-description = "Item-Bank mit Punkte-Rangliste (NPCs mit Spieler-Skin, Sidebar, /reichste, /kontostand)"
+version = "3.0.0"
+description = "Item-Bank mit Punkte-Rangliste und Kopfgeldern (WANTED-Plakate, eigenes Resourcepack)"
 
 repositories {
     mavenCentral()
