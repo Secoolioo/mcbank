@@ -1,0 +1,164 @@
+{
+  "providers": [
+    {
+      "type": "space",
+      "advances": {
+        "": 1,
+        "": -1,
+        "": 2,
+        "": -2,
+        "": 4,
+        "": -4,
+        "": 8,
+        "": -8,
+        "": 16,
+        "": -16,
+        "": 32,
+        "": -32,
+        "": 64,
+        "": -64,
+        "": 128,
+        "": -128,
+        "": 256,
+        "": -256,
+        "": 512,
+        "": -512,
+        "": 1024,
+        "": -1024
+      }
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/plakat_0.png",
+      "ascent": 30,
+      "height": 66,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/plakat_1.png",
+      "ascent": 30,
+      "height": 66,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/plakat_2.png",
+      "ascent": 30,
+      "height": 66,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/plakat_3.png",
+      "ascent": 30,
+      "height": 66,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/pixel.png",
+      "ascent": 19,
+      "height": 24,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/pixel.png",
+      "ascent": 16,
+      "height": 24,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/pixel.png",
+      "ascent": 13,
+      "height": 24,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/pixel.png",
+      "ascent": 10,
+      "height": 24,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/pixel.png",
+      "ascent": 7,
+      "height": 24,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/pixel.png",
+      "ascent": 4,
+      "height": 24,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/pixel.png",
+      "ascent": 1,
+      "height": 24,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/pixel.png",
+      "ascent": -2,
+      "height": 24,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/schrift_klein.png",
+      "ascent": -6,
+      "height": 8,
+      "chars": [
+        "ABCDEFGH",
+        "IJKLMNOP",
+        "QRSTUVWX",
+        "YZ012345",
+        "6789_-. "
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "bankranking:font/schrift_gross.png",
+      "ascent": -16,
+      "height": 16,
+      "chars": [
+        "",
+        "",
+        "",
+        "   "
+      ]
+    }
+  ]
+}

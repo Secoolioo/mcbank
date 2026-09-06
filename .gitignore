@@ -4,3 +4,19 @@ build/
 *.iml
 out/
 .kotlin/
+
+# Eigene Sounddateien des Betreibers. Sie gehoeren nicht ins oeffentliche Repository
+# und nicht ins Release-Jar - sie werden nur auf dem Server ins Pack gelegt.
+pack-eigene/
+
+# Zwischenstaende der Klangerzeugung.
+tools/sounds/_wav/
+src/main/pack/assets/bankranking/sounds/kopfgeld/_wav/
+
+# Vorschaubilder, jederzeit neu erzeugbar.
+src/main/plakat-vorschau.png
+src/main/plakat-simulation.png
+
+# Python-Zwischenstaende der Werkzeuge.
+__pycache__/
+*.pyc
