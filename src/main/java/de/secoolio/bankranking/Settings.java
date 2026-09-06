@@ -48,6 +48,14 @@ public final class Settings {
     /** Der senkrechte Strich ist in jeder Schrift vorhanden, auch ohne Resourcepack. */
     public static final String DEFAULT_BAR_SYMBOL = "|";
     public static final double DEFAULT_BAR_LENGTH = 10.0;
+    /** Port des eingebauten Webservers, ueber den das Resourcepack ausgeliefert wird. */
+    public static final int DEFAULT_PACK_PORT = 8123;
+    public static final String DEFAULT_PACK_PROMPT =
+            "<gold>Fuer die Kopfgeld-Steckbriefe braucht dieser Server ein Resourcepack.";
+
+    /** Die Werte rund um das Resourcepack, gebuendelt statt als weiterer Einzelparameter. */
+    private record Pack(boolean enabled, int port, String address, String prompt) {
+    }
 
     /** Die Zahlenwerte beider Bremsen, gebuendelt statt als Index-Array. */
     private record Damping(boolean wealthEnabled, double wealthThreshold, double wealthStrength,
@@ -81,6 +89,10 @@ public final class Settings {
     private final String sidebarTitle;
     private final String barSymbol;
     private final int barLength;
+    private final boolean packEnabled;
+    private final int packPort;
+    private final String packAddress;
+    private final String packPrompt;
 
     private Settings(Map<ItemRarity, Double> rarityBase,
                      Map<Category, Double> categoryMultiplier,
@@ -96,7 +108,8 @@ public final class Settings {
                      boolean sidebarEnabled,
                      String sidebarTitle,
                      String barSymbol,
-                     int barLength) {
+                     int barLength,
+                     Pack pack) {
         this.rarityBase = rarityBase;
         this.categoryMultiplier = categoryMultiplier;
         this.enchantBonusPerLevel = enchantBonusPerLevel;
@@ -123,6 +136,10 @@ public final class Settings {
         this.sidebarTitle = sidebarTitle;
         this.barSymbol = barSymbol;
         this.barLength = barLength;
+        this.packEnabled = pack.enabled();
+        this.packPort = pack.port();
+        this.packAddress = pack.address();
+        this.packPrompt = pack.prompt();
     }
 
     public static Settings load(ConfigurationSection c, Logger log) {
@@ -213,9 +230,15 @@ public final class Settings {
         int barLength = (int) Math.round(readPositive(c, "sidebar.balken-laenge", DEFAULT_BAR_LENGTH, log));
         barLength = Math.max(4, Math.min(30, barLength));
 
+        Pack pack = new Pack(
+                readFlag(c, "resourcepack.aktiv", true, log),
+                readPort(c, "resourcepack.port", DEFAULT_PACK_PORT, log),
+                readText(c, "resourcepack.adresse", "").trim(),
+                readMiniMessage(c, "resourcepack.aufforderung", DEFAULT_PACK_PROMPT, log));
+
         return new Settings(rarity, multipliers, bonus, fallback, damping, materialBase, overrides,
                 npcName, npcDescription, confirmHead, toggles, sidebarEnabled, sidebarTitle,
-                barSymbol, barLength);
+                barSymbol, barLength, pack);
     }
 
     private static double defaultRarity(ItemRarity rarity) {
@@ -243,6 +266,25 @@ public final class Settings {
         if (!isUsable(value)) {
             log.warning("config.yml: '" + path + "' = " + value + " ist ungültig (muss >= 0 sein)"
                     + " - Standardwert " + fallback + " wird verwendet");
+            return fallback;
+        }
+        return value;
+    }
+
+    /**
+     * Eine Portnummer aus dem freien Bereich.
+     *
+     * <p>Unter 1024 duerfte der Serverprozess ohnehin meist nicht binden; ein Wert dort waere
+     * also kein Tippfehler mit kleiner Wirkung, sondern ein Start ohne Pack.
+     */
+    private static int readPort(ConfigurationSection c, String path, int fallback, Logger log) {
+        if (c.get(path, null) == null) {
+            return fallback;
+        }
+        int value = c.getInt(path, fallback);
+        if (value < 1024 || value > 65535) {
+            log.warning("config.yml: '" + path + "' muss zwischen 1024 und 65535 liegen, ist aber "
+                    + c.get(path) + " - es gilt " + fallback);
             return fallback;
         }
         return value;
@@ -434,6 +476,23 @@ public final class Settings {
     }
 
     /** Einzeilige Zusammenfassung fuer das Server-Log beim Laden. */
+    public boolean packEnabled() {
+        return this.packEnabled;
+    }
+
+    public int packPort() {
+        return this.packPort;
+    }
+
+    /** Leer bedeutet: die Adresse selbst ermitteln. */
+    public String packAddress() {
+        return this.packAddress;
+    }
+
+    public String packPrompt() {
+        return this.packPrompt;
+    }
+
     public String summaryLine() {
         StringBuilder sb = new StringBuilder();
         sb.append(MaterialValues.size()).append(" Materialwerte eingebaut | Seltenheit x");

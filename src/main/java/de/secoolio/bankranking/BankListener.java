@@ -168,6 +168,9 @@ public final class BankListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         this.plugin.ranking().enable(event.getPlayer());
+        if (this.plugin.packs() != null) {
+            this.plugin.packs().send(event.getPlayer());
+        }
     }
 
     @EventHandler

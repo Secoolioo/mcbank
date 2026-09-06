@@ -45,6 +45,23 @@ effekte:
   # Meldung an alle Spieler im Chat, wenn jemand einen Rang aufsteigt.
   aufstieg-broadcast: true
 
+resourcepack:
+  # Das Plugin bringt ein eigenes Resourcepack mit: es enthaelt die Grafik des WANTED-Plakats,
+  # die Pixelschrift fuer das Spielergesicht und eigene Western-Klaenge.
+  # Ohne Pack laeuft alles weiter, nur eben in der Sparfassung aus gewoehnlichen Textzeichen.
+  aktiv: true
+  # Port des kleinen Webservers, ueber den das Plugin das Pack ausliefert.
+  # Er muss von den Spielern erreichbar sein - im LAN also gegebenenfalls in der Firewall
+  # freigeben. Belegt ein anderer Dienst den Port, meldet das Plugin es und laeuft ohne Pack.
+  port: 8123
+  # Adresse, unter der die Spieler den Server erreichen. Leer lassen, dann ermittelt das
+  # Plugin sie selbst. Eine feste Adresse hier eintragen, wenn die Ermittlung danebenliegt
+  # (etwa bei mehreren Netzwerkkarten) - oder eine komplette URL auf eine fremde Ablage,
+  # dann wird der eingebaute Webserver gar nicht erst gestartet.
+  adresse: ""
+  # Text, den der Client im Abfragefenster anzeigt (MiniMessage-Format).
+  aufforderung: "<gold>Fuer die Kopfgeld-Steckbriefe braucht dieser Server ein Resourcepack."
+
 sidebar:
   # Rangliste am rechten Bildschirmrand ein- oder ausschalten.
   # Hinweis: Jeder Spieler bekommt dafuer ein eigenes Scoreboard, und Minecraft zeigt jedem

@@ -29,6 +29,7 @@ public final class BankRankingPlugin extends JavaPlugin {
     private RankProgressBar progressBar;
     private Effects effects;
     private RankingBoard ranking;
+    private ResourcePacks packs;
 
     @Override
     public void onEnable() {
@@ -48,7 +49,14 @@ public final class BankRankingPlugin extends JavaPlugin {
 
         this.ranking = new RankingBoard(this);
 
+        // Das Resourcepack ist Beiwerk: scheitert es, laeuft die Bank unveraendert weiter und
+        // das Kopfgeld zeigt spaeter die Sparfassung.
+        this.packs = ResourcePacks.start(this);
+
         getServer().getPluginManager().registerEvents(new BankListener(this), this);
+        if (this.packs != null) {
+            getServer().getPluginManager().registerEvents(this.packs, this);
+        }
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
                 event -> BankCommands.register(this, event.registrar()));
 
@@ -58,6 +66,21 @@ public final class BankRankingPlugin extends JavaPlugin {
                 this.ranking.enable(player);
             }
         });
+        if (this.packs != null) {
+            // Der Selbsttest holt das Pack ueber die eigene Adresse ab. Er laeuft neben dem
+            // Serverpuls, weil er auf das Netz wartet, und beantwortet vor dem ersten Spieler
+            // die Frage, ob die Adresse ueberhaupt erreichbar ist.
+            getServer().getScheduler().runTaskAsynchronously(this, () -> {
+                if (this.packs.selfTest()) {
+                    getLogger().info("Selbsttest des Resourcepacks bestanden");
+                }
+                getServer().getScheduler().runTask(this, () -> {
+                    for (Player player : getServer().getOnlinePlayers()) {
+                        this.packs.send(player);
+                    }
+                });
+            });
+        }
         getServer().getScheduler().runTaskTimer(this, () -> this.ranking.refreshAll(), REFRESH_TICKS, REFRESH_TICKS);
         getServer().getScheduler().runTaskTimer(this, () -> this.ranking.guard(), GUARD_TICKS, GUARD_TICKS);
 
@@ -87,6 +110,9 @@ public final class BankRankingPlugin extends JavaPlugin {
         }
         if (this.ranking != null) {
             this.ranking.shutdown();
+        }
+        if (this.packs != null) {
+            this.packs.stop();
         }
     }
 
@@ -153,6 +179,16 @@ public final class BankRankingPlugin extends JavaPlugin {
 
     public NpcManager npcs() {
         return this.npcs;
+    }
+
+    /** Die Auslieferung des Resourcepacks, oder {@code null} wenn sie nicht zustande kam. */
+    public ResourcePacks packs() {
+        return this.packs;
+    }
+
+    /** Hat dieser Spieler das Resourcepack geladen? Ohne Pack gilt die Sparfassung. */
+    public boolean hasPack(Player player) {
+        return this.packs != null && this.packs.has(player);
     }
 
     public RankingBoard ranking() {

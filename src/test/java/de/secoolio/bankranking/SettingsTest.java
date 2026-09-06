@@ -222,4 +222,28 @@ class SettingsTest {
         assertFalse(settings.sidebarEnabled());
         assertEquals("<red>Top", settings.sidebarTitle());
     }
+
+    @Test
+    @DisplayName("Ein Port ausserhalb des freien Bereichs wird gemeldet")
+    void packPortChecked() {
+        TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
+        Settings s = Settings.load(TestSupport.config("resourcepack:\n  port: 80\n"), log);
+        assertEquals(Settings.DEFAULT_PACK_PORT, s.packPort());
+        assertTrue(log.warnings().stream().anyMatch(w -> w.contains("resourcepack.port")),
+                log.warnings().toString());
+
+        Settings gross = Settings.load(TestSupport.config("resourcepack:\n  port: 99999\n"),
+                new TestSupport.RecordingLogger());
+        assertEquals(Settings.DEFAULT_PACK_PORT, gross.packPort());
+    }
+
+    @Test
+    @DisplayName("Ein gueltiger Port wird uebernommen, eine fehlende Angabe faellt still zurueck")
+    void packPortAccepted() {
+        TestSupport.RecordingLogger log = new TestSupport.RecordingLogger();
+        assertEquals(9000, Settings.load(TestSupport.config("resourcepack:\n  port: 9000\n"),
+                log).packPort());
+        assertEquals(Settings.DEFAULT_PACK_PORT,
+                Settings.load(TestSupport.config(""), log).packPort());
+    }
 }
