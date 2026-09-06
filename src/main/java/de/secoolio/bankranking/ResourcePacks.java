@@ -104,6 +104,17 @@ public final class ResourcePacks implements Listener {
 
             ResourcePackServer server = ResourcePackServer.start("", settings.packPort(), datei);
             String host = adresse.isEmpty() ? localAddress() : adresse;
+            if ("127.0.0.1".equals(host) && adresse.isEmpty()) {
+                // Ein stiller Rueckfall auf Loopback waere das Schlimmste: im Log staende eine
+                // plausible Adresse, der Selbsttest gelaenge, und kein einziger Spieler kaeme
+                // an das Pack - denn bei ihm zeigt 127.0.0.1 auf seinen eigenen Rechner.
+                plugin.getLogger().warning("Es liess sich keine von aussen erreichbare Adresse "
+                        + "ermitteln; das Pack wuerde unter 127.0.0.1 angeboten und waere fuer "
+                        + "niemanden erreichbar. Bitte resourcepack.adresse in der config.yml "
+                        + "setzen. Bis dahin wird das Pack ueber die oeffentliche Ablage "
+                        + "ausgeliefert.");
+                return new ResourcePacks(plugin, datei, server, FALLBACK_URL);
+            }
             String url = server.url(host);
             plugin.getLogger().info("Resourcepack wird ausgeliefert unter " + url
                     + " (" + kilobyte(datei) + " KB, SHA-1 " + datei.sha1() + ")");
@@ -124,13 +135,6 @@ public final class ResourcePacks implements Listener {
         return Math.round(datei.size() / 1024.0);
     }
 
-    /**
-     * Die eigene Adresse im lokalen Netz.
-     *
-     * <p>{@code InetAddress.getLocalHost()} liefert auf vielen Systemen nur 127.0.0.1 - damit
-     * kaeme kein einziger Mitspieler an das Pack. Deshalb werden die Netzwerkkarten selbst
-     * durchgesehen und die erste Adresse im privaten Bereich genommen.
-     */
     /**
      * Namensanfaenge von Schnittstellen, die kein Mitspieler je erreicht.
      *

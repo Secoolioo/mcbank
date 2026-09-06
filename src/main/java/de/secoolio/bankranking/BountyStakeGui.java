@@ -281,9 +281,10 @@ public final class BountyStakeGui implements BankWindow {
             case AUF_SICH_SELBST -> this.plugin.send(player, Messages.KOPFGELD_SELBST);
             case ZIEL_BESCHAEDIGT -> this.plugin.send(player, Messages.KOPFGELD_ZIEL_BESCHAEDIGT,
                     Placeholder.unparsed("name", this.targetName));
+            // Auch hier keine Punktzahl: "Mindestens 20,0" war genau die Zeile, nach deren
+            // Bedeutung im Spiel gefragt wurde.
             case ZU_KLEIN -> this.plugin.send(player, Messages.KOPFGELD_ZU_KLEIN,
-                    Placeholder.unparsed("mindest",
-                            this.plugin.bounties().format(this.plugin.settings().bountyMinStake())));
+                    Placeholder.unparsed("mindest", this.plugin.bounties().minStakeText()));
             case SPERRFRIST -> this.plugin.send(player, Messages.KOPFGELD_AUSSETZ_SPERRE,
                     Placeholder.unparsed("name", this.targetName),
                     Placeholder.unparsed("rest", BountyService.Zeit.kurz(

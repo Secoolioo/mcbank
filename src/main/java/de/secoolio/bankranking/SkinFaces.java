@@ -82,16 +82,23 @@ final class SkinFaces {
         if (anwesend != null) {
             return of(anwesend);
         }
-        return CompletableFuture
-                .supplyAsync(() -> {
-                    try {
-                        return Bukkit.createProfile(id, name).update().join();
-                    } catch (Exception e) {
-                        return null;
-                    }
-                }, this.pool)
-                .thenCompose(profil -> load(id, skinUrl(profil)))
-                .exceptionally(fehler -> SkinFace.defaultFor(id));
+        // supplyAsync uebergibt die Aufgabe SOFORT an den Pool. Ist der beendet, wirft es
+        // synchron eine RejectedExecutionException - ein angehaengtes exceptionally faenge
+        // sie nicht, weil es dann gar nicht mehr erreicht wird. Deshalb der Rahmen hier.
+        try {
+            return CompletableFuture
+                    .supplyAsync(() -> {
+                        try {
+                            return Bukkit.createProfile(id, name).update().join();
+                        } catch (Exception e) {
+                            return null;
+                        }
+                    }, this.pool)
+                    .thenCompose(profil -> load(id, skinUrl(profil)))
+                    .exceptionally(fehler -> SkinFace.defaultFor(id));
+        } catch (RuntimeException e) {
+            return CompletableFuture.completedFuture(SkinFace.defaultFor(id));
+        }
     }
 
     /** Der eigentliche Ladeweg: Adresse pruefen, Bild holen, Gesicht auslesen. */
@@ -109,16 +116,22 @@ final class SkinFaces {
         if (!isAllowedSkinUrl(adresse)) {
             return CompletableFuture.completedFuture(SkinFace.defaultFor(id));
         }
-        return this.client.sendAsync(
-                        HttpRequest.newBuilder(URI.create(adresse)).timeout(TIMEOUT).build(),
-                        HttpResponse.BodyHandlers.ofByteArray())
-                .thenApply(antwort -> {
-                    SkinFace gesicht = read(antwort);
-                    this.cache.put(id, gesicht);
-                    this.quelle.put(id, adresse);
-                    return gesicht;
-                })
-                .exceptionally(fehler -> SkinFace.defaultFor(id));
+        // Auch hier: der HttpClient benutzt denselben Pool, und sendAsync wirft bei einem
+        // beendeten Pool ebenfalls synchron.
+        try {
+            return this.client.sendAsync(
+                            HttpRequest.newBuilder(URI.create(adresse)).timeout(TIMEOUT).build(),
+                            HttpResponse.BodyHandlers.ofByteArray())
+                    .thenApply(antwort -> {
+                        SkinFace gesicht = read(antwort);
+                        this.cache.put(id, gesicht);
+                        this.quelle.put(id, adresse);
+                        return gesicht;
+                    })
+                    .exceptionally(fehler -> SkinFace.defaultFor(id));
+        } catch (RuntimeException e) {
+            return CompletableFuture.completedFuture(SkinFace.defaultFor(id));
+        }
     }
 
     private static SkinFace read(HttpResponse<byte[]> antwort) {

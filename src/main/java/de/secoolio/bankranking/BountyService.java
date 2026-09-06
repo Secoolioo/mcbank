@@ -192,7 +192,18 @@ public final class BountyService {
         }
 
         refreshAll(target);
-        announce(target, targetName, placer.getName(), topf);
+        // Die Buchung darf niemals an der Anzeige haengen. Flaechendeckendes Abfangen ist
+        // sonst nicht mein Stil, hier aber genau richtig: kaeme aus der Ankuendigung eine
+        // Ausnahme, verliesse place() den Aufrufer ohne OK - das Fenster bliebe gefuellt,
+        // obwohl der Topf bereits in der Datei steht, und der Spieler haette seinen Einsatz
+        // ein zweites Mal. Ein misslungenes Plakat ist ein Schoenheitsfehler, doppelte
+        // Diamanten sind es nicht.
+        try {
+            announce(target, targetName, placer.getName(), topf);
+        } catch (RuntimeException e) {
+            this.plugin.getLogger().warning("Die Ankuendigung des Kopfgelds auf " + targetName
+                    + " ist fehlgeschlagen (" + e + "). Das Kopfgeld selbst steht.");
+        }
         return PlaceResult.OK;
     }
 

@@ -135,7 +135,7 @@ Es genügt eine Java-Laufzeit; Gradle lädt sich das nötige JDK 25 selbst nach 
 ./gradlew build
 ```
 
-Ergebnis: `build/libs/BankRanking-3.1.0.jar`.
+Ergebnis: `build/libs/BankRanking-3.1.1.jar`.
 
 Die losen Pack-Dateien liegen eingecheckt unter `src/main/pack`; Gradle packt sie reproduzierbar
 (feste Zeitstempel, feste Reihenfolge), damit der SHA-1 zwischen Builds gleich bleibt. Neu erzeugen
@@ -154,7 +154,7 @@ und im Ordner `dist/`.
 Direkt auf dem Server, im Ordner `plugins/`:
 
 ```bash
-wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-3.1.0.jar
+wget https://github.com/Secoolioo/mcbank/releases/latest/download/BankRanking-3.1.1.jar
 ```
 
 Oder das ganze Projekt holen:
